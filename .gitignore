@@ -2,3 +2,4 @@
 *.pyc
 /src/node/targets
 /src/node/zr
+/package-lock.json
