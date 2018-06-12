@@ -365,7 +365,7 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
               resolve(body)          
             }
             else
-              resolve('无法连接节点')
+              resolve({code:code,body:body})
           })
         })
         
