@@ -28,9 +28,9 @@ var nodeTask={
         var param = {newNodeTask}
         postJson(url_base+'/task/add',token,param, callback)
     },
-    syncStatus:(url_base,token,taskid,status,callback) => {
+    changeOper:(url_base,token,taskid,status,callback) => {
         var param={taskId:taskid,status:status}
-        postJson(url_base+'/task/syncstatus',token,param, callback)
+        postJson(url_base+'/task/changeOper',token,param, callback)
     },
     delete:(url_base,token,nodeTaskId, callback) => {
         var param = {nodeTaskId}

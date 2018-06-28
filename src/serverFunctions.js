@@ -5,27 +5,33 @@ var jwt=require('jwt-simple')
 var fs = require('fs')
 
 const OPER_STATUS = {
-    new: 0,
-    implement:1,
-    paused:2,
-    complete:3,
-    deleted:-1
+    new: 'new',
+    run:'run',
+    pause:'pause',
+    complete:'complete',
+    delete:'delete'
   }
 const IMPL_STATUS={
-  wrong:-1,  
-  normal:0,
-  complete:1,
+  wrong:'wrong',  
+  waiting:'waiting',
+  running:'running',
+  complete:'complete',
 }
-
+const ZMAP_STATUS={
+  wrong:'wrong',  
+  waiting:'waiting',
+  running:'running',
+  complete:'complete',
+}
 const SYNC_STATUS={
-    ok:0,
-    not_received:-1,
-    not_sync:1
+    ok:'ok',
+    not_received:'not received',
+    not_sync:'not sync'
 }
 
 const myMiddleWare={
     verifyToken:(req,res,next)=>{
-        //中间件总是执行两次，其中有一次没带上我的数据，所以忽略掉其中一次
+        // the myMiddleWare always run twice out of no reason, one of these not taking my data, so i omiss one of these.
         if(req.get('access-control-request-method')==null){
           console.log(req.originalUrl + ' has been accessed by %s at %s',req.ip,moment(Date.now()).format('YYYY-MM-DD HH:mm'))
           if(req.originalUrl!='/user/gettoken'){
@@ -115,38 +121,38 @@ const user={
   
 
 
-const changeTaskStatus=async (req,res,newOperStatus)=>{
+const changeOper=async (req,res,newOperStatus)=>{
     var {taskId} = req.body
     if (taskId == null)
         return res.sendStatus(415)
-    //更新nodetask的status
+    //update operStatus of each nodeTask
     await new Promise((resolve, reject) => {
         dbo.nodeTask.update_by_taskId(taskId,{operStatus:newOperStatus},(err,result)=>{
             resolve(err)
         })
     });
-    //获得这个任务的所有nodetask
+    //get all the nodetasks of this task
     var nodetasks = await new Promise((resolve, reject) => {
         dbo.nodeTask.get({taskId},(err,result)=>{
             resolve(result)
         })
     });
-    //与节点同步任务状态 
+    //sync the task state with nodes
     let allOK=true
     for(var nodetask of nodetasks){
-        //取出节点信息
+        //get the nodes' info
         var nodeInfo = await new Promise((resolve, reject) => {
             dbo.node.getOne(nodetask.node._id,(err,result)=>{
                 resolve(result)
             })
         });
-        //访问节点，同步任务状态
+        //access the node api to sync task status
         var syncCode = await new Promise((resolve, reject) => {
-            nodeApi.nodeTask.syncStatus(nodeInfo.url,nodeInfo.token,nodetask._id,newOperStatus,(code,body)=>{
+            nodeApi.nodeTask.changeOper(nodeInfo.url,nodeInfo.token,nodetask._id,newOperStatus,(code,body)=>{
                 resolve(code)
             })
         });
-        let implStatus=syncCode==200?IMPL_STATUS.normal:IMPL_STATUS.wrong
+        let implStatus=syncCode==200?IMPL_STATUS.waiting:IMPL_STATUS.wrong
         let syncStatus=syncCode==200?SYNC_STATUS.ok:SYNC_STATUS.not_sync
         console.log(syncCode)
         if(syncCode!=200)
@@ -154,8 +160,8 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
         dbo.nodeTask.update_by_nodeTaskId(nodetask._id,{syncStatus,implStatus},(err,rest)=>{})
 
     }
-    //最后更新task的status
-    let implStatus=allOK?IMPL_STATUS.normal:IMPL_STATUS.wrong
+    //in the end, update the status of task itself
+    let implStatus=allOK?IMPL_STATUS.waiting:IMPL_STATUS.wrong
     dbo.task.update_by_taskId(taskId,{operStatus:newOperStatus,implStatus},(err,rest)=>{
       err ? res.sendStatus(500) : res.json('ok')
     })
@@ -181,7 +187,7 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
           user:req.tokenContainedInfo.user,
           percent:0,
           operStatus:OPER_STATUS.new,
-          implStatus:IMPL_STATUS.normal,
+          implStatus:IMPL_STATUS.waiting,
         }
         dbo.task.add(newTaskToAdd, (err,rest) => {})
       }
@@ -193,34 +199,34 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
         return res.sendStatus(415)
       dbo.task.del(taskId, (err,rest) => {})
       var asyncActions=async()=>{
-        //获得这个任务的所有nodetask
+        //get all the nodetasks of this task
         var nodetasks = await new Promise((resolve, reject) => {
           dbo.nodeTask.get({taskId},(err,result)=>{
               resolve(result)
           })
         });
-        //通知各节点删除任务
+		//notify all the node to delete the nodetask
         for(var nodetask of nodetasks){
-          //取出节点信息
+          //get all the node info
           var nodeInfo = await new Promise((resolve, reject) => {
               dbo.node.getOne(nodetask.node._id,(err,result)=>{
                   resolve(result)
               })
           });
-          //访问节点，删除任务
+          //access the node api to delete the nodetask
           var syncCode = await new Promise((resolve, reject) => {
               nodeApi.nodeTask.delete(nodeInfo.url,nodeInfo.token,nodetask._id,(code,body)=>{
                   resolve(code)
               })
           });
           console.log(syncCode)
-          //如果返回正确，则删除该nodetask
+          //if return code is right, delete the server's nodetask
           if(syncCode==200){
             dbo.nodeTask.del_by_nodeTaskId(nodetask._id,(err,result)=>{})
           }
-          //如果未正确返回，则置operStatus为删除，syncStatus为not_sync，留待定时任务再次尝试删除
+          //otherwise, put operStatus as delete,syncStatus as not_sync, wait for the timing task to delete it later
           else{
-            dbo.nodeTask.update_by_nodeTaskId(nodetask._id,{operStatus:OPER_STATUS.deleted,syncStatus:SYNC_STATUS.not_sync},(err,result)=>{})
+            dbo.nodeTask.update_by_nodeTaskId(nodetask._id,{operStatus:OPER_STATUS.delete,syncStatus:SYNC_STATUS.not_sync},(err,result)=>{})
           }
           
             
@@ -238,11 +244,11 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
       if (task == null||nodes==null) 
         return res.sendStatus(415)
       var {targetList,plugin}=task
-      //以下代码假定数据库操作不出问题，未作处理
+      //the following codes assume that the db operation will not go wrong, there is nothing has done for db exception.
       var asyncActions=async () => {
         let allIpRange=[],totalsum=0
 
-        //合并所有目标的ip
+        //merge all the ip of targets
         for(var target of targetList){
           var iprange = await new Promise((resolve, reject) => {
             dbo.target.getOne(target._id,(err,result)=>{
@@ -252,62 +258,66 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
           allIpRange.push(...iprange.ipRange)
           totalsum=totalsum+iprange.ipTotal
         }
-        //按节点个数划分ip
-        // var {ipDispatch}=require('./ipdispatch')
-        // const {totalsum,dispatchList}=ipDispatch(allIpRange,length)
         
-        //改成按节点个数划分行数
+        //dispatch the lines according to node counts.
         var {ipDispatch}=require('./ipdispatch2')
         let dispatchList=ipDispatch(allIpRange,nodes.length)
         console.log(dispatchList)
-        //每个节点分配ip，产生一个nodetask
+        //allot each node with a nodetask with dispatched ip
         let allOK=true
         for(let i=0;i<nodes.length;i++){          
+          // structure of nodeTask table
           let newNodeTask={
             taskId:task.id,
+            taskName:task.name,
             node:nodes[i],
             ipRange:dispatchList[i],
             plugin,
             ipCount:65555,
             ipTotal:0,
             createdAt:Date.now(),
-            operStatus:OPER_STATUS.implement,
-            implStatus:IMPL_STATUS.normal,
+            operStatus:OPER_STATUS.run,
+            syncStatus:SYNC_STATUS.not_received,
+            implStatus:IMPL_STATUS.waiting,
+            zmapStatus:ZMAP_STATUS.waiting,
             progress:0, 
+            keyLog:[],
+            threadsDemand:10000,
+            threadsAllot:0,
           }
-          //获取这个node的url，token
+          //get the url and token of this node.
           var nodeInfo = await new Promise((resolve, reject) => {
             dbo.node.getOne(nodes[i]._id,(err,result)=>{
                 resolve(result)
             })
           });
-          //保存节点任务，获取这个nodetask的id
+          //save the nodetask,and get its id after insertion of the document.
           var insertedId = await new Promise((resolve, reject) => {
             dbo.nodeTask.add(newNodeTask,(err,rest)=>{
                 resolve(rest.insertedId)
             })
           });
-          //以newNodeTask为参数访问node服务器下达任务
+          //access the node api to issue the nodetask with newNodeTask as parameter.
           newNodeTask.nodeTaskId=insertedId
           delete newNodeTask.node
           delete newNodeTask._id
+          delete newNodeTask.syncStatus
           var syncCode = await new Promise((resolve, reject) => {
             nodeApi.nodeTask.add(nodeInfo.url,nodeInfo.token,newNodeTask,(code,body)=>{
                 resolve(code)
             })
           });
-          //节点返回200则说明同步成功，更新到nodetask，否则为同步失败，即这条任务与节点不一致
-          let implStatus=syncCode==200?IMPL_STATUS.normal:IMPL_STATUS.wrong
+          //mark the nodetask according to return code
+          let implStatus=syncCode==200?IMPL_STATUS.waiting:IMPL_STATUS.wrong
           let syncStatus=syncCode==200?SYNC_STATUS.ok:SYNC_STATUS.not_received
           if(syncCode!=200)
             allOK=false
           dbo.nodeTask.update_by_nodeTaskId(insertedId,{syncStatus,implStatus},(err,rest)=>{})
     
-          //待做：访问节点是否有插件，如果没有则异步发送插件
         }
-        //更改任务状态
-        let implStatus=allOK?IMPL_STATUS.normal:IMPL_STATUS.wrong
-        dbo.task.update_by_taskId(task.id,{startAt:Date.now(),operStatus:OPER_STATUS.implement,implStatus},(err,rest)=>{
+        //change the task status according to the above results
+        let implStatus=allOK?IMPL_STATUS.waiting:IMPL_STATUS.wrong
+        dbo.task.update_by_taskId(task.id,{startAt:Date.now(),operStatus:OPER_STATUS.run,implStatus},(err,rest)=>{
           err ? res.sendStatus(500) : res.json('ok')
         })
         
@@ -315,10 +325,10 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
       asyncActions()
     },
     pause:(req, res) => {
-        changeTaskStatus(req,res,OPER_STATUS.paused)
+        changeOper(req,res,OPER_STATUS.pause)
     },
     resume:(req, res) => {
-        changeTaskStatus(req,res,OPER_STATUS.implement)
+        changeOper(req,res,OPER_STATUS.run)
     },
     get: (req, res) => {
       var condition = req.body
@@ -400,7 +410,7 @@ const changeTaskStatus=async (req,res,newOperStatus)=>{
       var unfinishedTasks=await new Promise((resolve,reject)=>{
         dbo.task.get({
           implStatus:{$ne:IMPL_STATUS.complete},
-          operStatus:OPER_STATUS.implement,
+          operStatus:OPER_STATUS.run,
         },(err,rest)=>{
             resolve(rest)
         })

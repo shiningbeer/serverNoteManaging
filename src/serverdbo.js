@@ -14,7 +14,7 @@ const TABLES = {
 
 //connect
 var connect = (url, dbname, callback) => {
-    mongo.connect(url, (err, db) => {
+    mongo.connect(url,{useNewUrlParser: true}, (err, db) => {
         dbo = db.db(dbname)
         callback(err)
     })
