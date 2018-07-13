@@ -399,10 +399,11 @@ const changeOper=async (req,res,newOperStatus)=>{
             //待做，如果code不为200，设置该节点不在线
             if(code==200){
               //将取回的nodetask数据更新到数据库
+              //todo update node db of synctime
               for(var nodeTask of body){
                 console.log(nodeTask)
-                let {nodeTaskId,progress,ipTotal,implStatus,errMsg,zmap}=nodeTask
-                dbo.nodeTask.update_by_nodeTaskId(nodeTaskId,{progress,ipTotal,implStatus,errMsg,zmap},(err,rest)=>{})
+                let {nodeTaskId,keyLog,progress,ipTotal,implStatus,threadsAllot,zmapStatus}=nodeTask
+                dbo.nodeTask.update_by_nodeTaskId(nodeTaskId,{keyLog,progress,threadsAllot,ipTotal,implStatus,zmapStatus,syncTime:Date.now()},(err,rest)=>{})
               }              
             }
           })
@@ -418,38 +419,37 @@ const changeOper=async (req,res,newOperStatus)=>{
       })
       for(var task of unfinishedTasks){
         //找出该任务所有的节点任务
-        console.log(task._id)
         dbo.nodeTask.get({taskId:task._id.toString()},(err,rest)=>{
           let flag_complete=true//判断是否所有子任务都完成
           let flag_err=false//判断是否有出错的子任务
           let err_msg=''
           let sum_ipTotal=0
           let sum_ipProgress=0
+          let sum_threads=0
           for(var nodetask of rest){
-            let {errMsg,ipTotal,progress,implStatus}=nodetask
-            console.log(implStatus)
+            let {threadsAllot,ipTotal,progress,implStatus}=nodetask
             if(implStatus!=IMPL_STATUS.complete)
               flag_complete=false
             if(implStatus==IMPL_STATUS.wrong){
               flag_err=true
-              err_msg=err_msg+errMsg+'; '
             }
             sum_ipProgress=sum_ipProgress+progress
             sum_ipTotal=sum_ipTotal+ipTotal
+            sum_threads=sum_threads+threadsAllot
           }
           if(flag_complete){
             //标记任务已完成
             dbo.task.update_by_taskId(task._id,{implStatus:IMPL_STATUS.complete,operStatus:OPER_STATUS.complete},(err,rest)=>{})
           }           
 
-          if(err_msg){
+          if(flag_err){
             //标记任务出错，记录错误信息
-            dbo.task.update_by_taskId(task._id,{implStatus:IMPL_STATUS.wrong,errMsg:err_msg},(err,rest)=>{})
+            dbo.task.update_by_taskId(task._id,{implStatus:IMPL_STATUS.wrong},(err,rest)=>{})
           }
           //记录进度和总数
           sum_ipTotal==0?percent=0:percent=(sum_ipProgress/sum_ipTotal)*100
           
-          dbo.task.update_by_taskId(task._id,{progress:sum_ipProgress,ipTotal:sum_ipTotal,percent:percent},(err,rest)=>{})
+          dbo.task.update_by_taskId(task._id,{progress:sum_ipProgress,ipTotal:sum_ipTotal,percent:percent,threads:sum_threads},(err,rest)=>{})
           if(percent==100)
             dbo.task.update_by_taskId(task._id,{implStatus:IMPL_STATUS.complete,operStatus:OPER_STATUS.complete},(err,rest)=>{})
             
