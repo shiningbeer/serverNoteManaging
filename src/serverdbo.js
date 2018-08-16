@@ -41,8 +41,8 @@ var mod = (col, wherestr, updatestr, callback) => {
     })
 }
 
-var find = (col, wherestr = {}, callback) => {
-    dbo.collection(col).find(wherestr).toArray((err, result) => {
+var find = (col, wherestr = {},sort={}, callback) => {
+    dbo.collection(col).find(wherestr).sort(sort).toArray((err, result) => {
         callback(err, result)
     });
 
@@ -80,7 +80,7 @@ var user={
         mod(TABLES.user, wherestr, updatestr,callback)
     },
     get :(wherestr,callback)=>{
-        find(TABLES.user,wherestr,callback)
+        find(TABLES.user,wherestr,{},callback)
     }
 }
 
@@ -109,7 +109,7 @@ var task={
     },
    
     get:(condition,callback)=>{
-        find(TABLES.task,condition,callback)
+        find(TABLES.task,condition,{'createdAt':-1},callback)
     },
 
     getOne:(id,callback)=>{
@@ -147,7 +147,7 @@ var node={
         mod(TABLES.node, wherestr, updatestr,callback)
     },
     get :(wherestr,callback)=>{
-        find(TABLES.node,wherestr,callback)
+        find(TABLES.node,wherestr,{},callback)
     },
     getOne:(id,callback)=>{
         var _id=ObjectId(id)
@@ -175,7 +175,7 @@ var plugin={
         mod(TABLES.plugin, wherestr, updatestr,callback)
     },
     get :(wherestr,callback)=>{
-        find(TABLES.plugin,wherestr,callback)
+        find(TABLES.plugin,wherestr,{},callback)
     },
 
     getOne_by_name:(name,callback)=>{
@@ -206,7 +206,7 @@ var target={
         mod(TABLES.target, wherestr, updatestr,callback)
     },
     get :(wherestr,callback)=>{
-        find(TABLES.target,wherestr,callback)
+        find(TABLES.target,wherestr,{},callback)
     },
     getOne:(id,callback)=>{
         var _id=ObjectId(id)
@@ -253,7 +253,7 @@ var nodeTask={
         mod(TABLES.nodeTask, wherestr, updatestr,callback)
     },
     get :(wherestr,callback)=>{
-        find(TABLES.nodeTask,wherestr,callback)
+        find(TABLES.nodeTask,wherestr,{},callback)
     },
     getOne:(id,callback)=>{
         var _id=ObjectId(id)
