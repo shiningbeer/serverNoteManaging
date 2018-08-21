@@ -75,9 +75,9 @@ var server = app.listen(1978, function () {
   connectDB((err) => {
     err ? console.log('db connection fail!') : console.log('server starts!')
   })
-  //定时更新任务
+  // 定时更新任务
   setInterval(() => {
-    task.syncNode()
+    task.syncedToNode()
 }, 5000);
 
 })

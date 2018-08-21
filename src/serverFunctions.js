@@ -6,12 +6,28 @@ var fs = require('fs')
 
 const OPER_STATUS = {
   new: 'new',
+  wrong:'wrong',
+  waiting:'waiting',
   run: 'run',
   pause: 'pause',
   complete: 'complete',
   delete: 'delete'
 }
-const IMPL_STATUS = {
+const TASK_STATUS={
+  new:'new',
+  run: 'run',
+  wrong:'wrong',
+  pause:'pause',
+  complete:'complete',
+  delete:'delete'
+}
+const TASK_STAGE={
+  waiting:'waiting',
+  runZmap:'runZmap',
+  runScan:'runScan',
+  complete:'complete'
+}
+const SCAN_STATUS = {
   wrong: 'wrong',
   waiting: 'waiting',
   running: 'running',
@@ -126,43 +142,42 @@ const changeOper = async (req, res, newOperStatus) => {
   if (taskId == null)
     return res.sendStatus(415)
   //update operStatus of each nodeTask
-  await new Promise((resolve, reject) => {
-    dbo.nodeTask.update_by_taskId(taskId, { operStatus: newOperStatus }, (err, result) => {
-      resolve(err)
-    })
-  });
-  //get all the nodetasks of this task
-  var nodetasks = await new Promise((resolve, reject) => {
-    dbo.nodeTask.get({ taskId }, (err, result) => {
-      resolve(result)
-    })
-  });
-  //sync the task state with nodes
-  let allOK = true
-  for (var nodetask of nodetasks) {
-    //get the nodes' info
-    var nodeInfo = await new Promise((resolve, reject) => {
-      dbo.node.getOne(nodetask.node._id, (err, result) => {
-        resolve(result)
-      })
-    });
-    //access the node api to sync task status
-    var syncCode = await new Promise((resolve, reject) => {
-      nodeApi.nodeTask.changeOper(nodeInfo.url, nodeInfo.token, nodetask._id, newOperStatus, (code, body) => {
-        resolve(code)
-      })
-    });
-    let implStatus = syncCode == 200 ? IMPL_STATUS.waiting : IMPL_STATUS.wrong
-    let syncStatus = syncCode == 200 ? SYNC_STATUS.ok : SYNC_STATUS.not_sync
-    console.log(syncCode)
-    if (syncCode != 200)
-      allOK = false
-    dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { syncStatus, implStatus }, (err, rest) => { })
+  // await new Promise((resolve, reject) => {
+  //   dbo.nodeTask.update_by_taskId(taskId, { operStatus: newOperStatus }, (err, result) => {
+  //     resolve(err)
+  //   })
+  // });
+  // //get all the nodetasks of this task
+  // var nodetasks = await new Promise((resolve, reject) => {
+  //   dbo.nodeTask.get({ taskId }, (err, result) => {
+  //     resolve(result)
+  //   })
+  // });
+  // //sync the task state with nodes
+  // let allOK = true;
+  // for (var nodetask of nodetasks) {
+  //   //get the nodes' info
+  //   var nodeInfo = await new Promise((resolve, reject) => {
+  //     dbo.node.getOne(nodetask.node._id, (err, result) => {
+  //       resolve(result)
+  //     })
+  //   });
+  //   //access the node api to sync task status
+  //   var syncCode = await new Promise((resolve, reject) => {
+  //     nodeApi.nodeTask.changeOper(nodeInfo.url, nodeInfo.token, nodetask._id, newOperStatus, (code, body) => {
+  //       resolve(code)
+  //     })
+  //   });
+  //   let syncStatus = syncCode == 200 ? SYNC_STATUS.ok : SYNC_STATUS.not_sync
+  //   console.log(syncCode)
+  //   if (syncCode != 200)
+  //     allOK = false
+  //   dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { syncStatus, scanStatus }, (err, rest) => { })
 
-  }
+  // }
   //in the end, update the status of task itself
-  let implStatus = allOK ? IMPL_STATUS.waiting : IMPL_STATUS.wrong
-  dbo.task.update_by_taskId(taskId, { operStatus: newOperStatus, implStatus }, (err, rest) => {
+  // let status=allOK?TASK_STATUS.run:TASK_STATUS.wrong
+  dbo.task.update_by_taskId(taskId, {paused:newOperStatus}, (err, rest) => {
     err ? res.sendStatus(500) : res.json('ok')
   })
 }
@@ -174,7 +189,12 @@ const task = {
       return res.sendStatus(415)
     //todo: verify validity of newtask
     //todo: verify if the plugin designated exists in local disk, if not, return the message 'missing plugin' to the server 
-    let { pluginList, name } = newTask
+    let { pluginList, name,targetList} = newTask
+    var ipRangeCount=0
+    for(var target of targetList){
+      ipRangeCount=ipRangeCount+target.lines
+    }
+
     delete newTask.pluginList
     delete newTask.name
     for (var plugin of pluginList) {
@@ -185,58 +205,132 @@ const task = {
         plugin,
         createdAt: Date.now(),
         user: req.tokenContainedInfo.user,
-        percent: 0,
-        operStatus: OPER_STATUS.new,
-        implStatus: IMPL_STATUS.waiting,
+        
+        goWrong:false,
+        brandNew:true,
+        paused:true,
+
+        zmapTotal:ipRangeCount,
+        zmapProgress:0,
+        zmapComplete:false,
+
+        scanTotal:-1,
+        scanProgress:0,
+        scanComplete:false
       }
       dbo.task.add(newTaskToAdd, (err, rest) => { })
     }
     res.json('ok')
   },
-  delete: (req, res) => {
+  delete: async (req, res) => {
     var taskId = req.body.taskId
     if (taskId == null)
       return res.sendStatus(415)
-    dbo.task.del(taskId, (err, rest) => { })
-    var asyncActions = async () => {
-      //get all the nodetasks of this task
-      var nodetasks = await new Promise((resolve, reject) => {
-        dbo.nodeTask.get({ taskId }, (err, result) => {
+    await new Promise((resolve, reject) => {
+      dbo.nodeTask.update_by_taskId(taskId, { deleted:true, syncedToNode:false}, (err, result) => {
+        resolve(err)
+      })
+    });
+    dbo.task.del(taskId, (err, rest) => {err ? res.sendStatus(500) : res.json('ok') })
+    // var asyncActions = async () => {
+    //   //get all the nodetasks of this task
+    //   var nodetasks = await new Promise((resolve, reject) => {
+    //     dbo.nodeTask.get({ taskId }, (err, result) => {
+    //       resolve(result)
+    //     })
+    //   });
+    //   //notify all the node to delete the nodetask
+    //   for (var nodetask of nodetasks) {
+    //     //get all the node info
+    //     var nodeInfo = await new Promise((resolve, reject) => {
+    //       dbo.node.getOne(nodetask.node._id, (err, result) => {
+    //         resolve(result)
+    //       })
+    //     });
+    //     //access the node api to delete the nodetask
+    //     var syncCode = await new Promise((resolve, reject) => {
+    //       nodeApi.nodeTask.delete(nodeInfo.url, nodeInfo.token, nodetask._id, (code, body) => {
+    //         resolve(code)
+    //       })
+    //     });
+    //     console.log(syncCode)
+    //     //if return code is right, delete the server's nodetask
+    //     if (syncCode == 200) {
+    //       dbo.nodeTask.del_by_nodeTaskId(nodetask._id, (err, result) => { })
+    //     }
+    //     //otherwise, put operStatus as delete,syncStatus as not_sync, wait for the timing task to delete it later
+    //     else {
+    //       dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { operStatus: OPER_STATUS.delete, syncStatus: SYNC_STATUS.not_sync }, (err, result) => { })
+    //     }
+
+
+    //   }
+    // }
+    // asyncActions()
+  },
+  syncedToNode:async()=>{
+      //get all nodeTasks
+      var nodeTasks = await new Promise((resolve, reject) => {
+        dbo.nodeTask.get({}, (err, result) => {
           resolve(result)
         })
       });
-      //notify all the node to delete the nodetask
-      for (var nodetask of nodetasks) {
-        //get all the node info
+
+      //deal the nodetask in turn
+      for (var nodetask of nodeTasks) {
         var nodeInfo = await new Promise((resolve, reject) => {
           dbo.node.getOne(nodetask.node._id, (err, result) => {
             resolve(result)
           })
         });
-        //access the node api to delete the nodetask
-        var syncCode = await new Promise((resolve, reject) => {
-          nodeApi.nodeTask.delete(nodeInfo.url, nodeInfo.token, nodetask._id, (code, body) => {
-            resolve(code)
-          })
-        });
-        console.log(syncCode)
-        //if return code is right, delete the server's nodetask
-        if (syncCode == 200) {
-          dbo.nodeTask.del_by_nodeTaskId(nodetask._id, (err, result) => { })
+        // for the deleted
+        if (nodetask.deleted){
+          //if not received, delete directly
+          if(!nodetask.taskReceived){
+            dbo.nodeTask.del_by_nodeTaskId(nodetask._id, (err, result) => { })
+            continue
+          }
+          //access the node api to delete the nodetask
+          var syncCode = await new Promise((resolve, reject) => {
+            nodeApi.nodeTask.delete(nodeInfo.url, nodeInfo.token, nodetask._id, (code, body) => {
+              resolve(code)
+            })
+          });
+          //if return code is right, delete the server's nodetask
+          if (syncCode == 200) 
+            dbo.nodeTask.del_by_nodeTaskId(nodetask._id, (err, result) => { })
+          //go on to next nodetask
+          continue          
         }
-        //otherwise, put operStatus as delete,syncStatus as not_sync, wait for the timing task to delete it later
-        else {
-          dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { operStatus: OPER_STATUS.delete, syncStatus: SYNC_STATUS.not_sync }, (err, result) => { })
+        //for the not received by node
+        if(!nodetask.taskReceived){
+          
+          var syncCode = await new Promise((resolve, reject) => {
+            nodeApi.nodeTask.add(nodeInfo.url, nodeInfo.token, nodetask, (code, body) => {
+              resolve(code)
+            })
+          });
+          // if return code is right, update the nodetask
+          if (syncCode == 200) 
+            dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { taskReceived:true,needToNotifyOperChanged:false }, (err, rest) => { })
+          continue
         }
+        //for the operation changed, that is ,the paused property of nodetask changed
+        if (nodetask.needToNotifyOperChanged){
+            var syncCode = await new Promise((resolve, reject) => {
+              nodeApi.nodeTask.changeOper(nodeInfo.url, nodeInfo.token, nodetask._id, nodetask.paused, (code, body) => {
+                resolve(code)
+              })
+            });
+            if (syncCode == 200) 
+              dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { needToNotifyOperChanged:false }, (err, rest) => { })
+        }
+        //for the nodetask needs to start scan but the order and the scan-range not received by the node
+        if(nodetask.startScan&&!nodetask.scanRangeReceived){
 
-
+        }
       }
-    }
-    asyncActions()
-
-    res.json('ok')
-
-
+      
   },
   start: (req, res) => {
     var task = req.body.task
@@ -262,73 +356,77 @@ const task = {
       //dispatch the lines according to node counts.
       var { ipDispatch } = require('./ipdispatch2')
       let dispatchList = ipDispatch(allIpRange, nodes.length)
-      console.log(dispatchList)
       //allot each node with a nodetask with dispatched ip
-      let allOK = true
+
       for (let i = 0; i < nodes.length; i++) {
         // structure of nodeTask table
         let newNodeTask = {
           taskId: task.id,
           taskName: task.name,
           node: nodes[i],
-          ipRange: dispatchList[i],
           plugin,
-          ipCount: 65555,
-          ipTotal: 0,
           createdAt: Date.now(),
-          operStatus: OPER_STATUS.run,
-          syncStatus: SYNC_STATUS.not_received,
-          implStatus: IMPL_STATUS.waiting,
-          zmapStatus: ZMAP_STATUS.waiting,
-          progress: 0,
+          paused:false,
+
+          taskReceived:false,
+          scanRangeReceived:false,
+          needToNotifyOperChanged: false,
+          goWrong:false,
+          deleted:false,
+
+          zmapRange: dispatchList[i],    
+          zmapTotal:dispatchList[i].length,
+          zmapProgress:0,
+          zmapComplete:false,
+
+          startScan:false,            
+          scanRange:[],
+          scanComplete:false,          
+          scanProgress: 0,
+          scanTotal:-1,
+
           keyLog: [],
-          threadsDemand: 10000,
-          threadsAllot: 0,
         }
-        //get the url and token of this node.
-        var nodeInfo = await new Promise((resolve, reject) => {
-          dbo.node.getOne(nodes[i]._id, (err, result) => {
-            resolve(result)
-          })
-        });
-        //save the nodetask,and get its id after insertion of the document.
+
         var insertedId = await new Promise((resolve, reject) => {
           dbo.nodeTask.add(newNodeTask, (err, rest) => {
             resolve(rest.insertedId)
           })
         });
-        //access the node api to issue the nodetask with newNodeTask as parameter.
-        newNodeTask.nodeTaskId = insertedId
-        delete newNodeTask.node
-        delete newNodeTask._id
-        delete newNodeTask.syncStatus
-        var syncCode = await new Promise((resolve, reject) => {
-          nodeApi.nodeTask.add(nodeInfo.url, nodeInfo.token, newNodeTask, (code, body) => {
-            resolve(code)
-          })
-        });
-        //mark the nodetask according to return code
-        let implStatus = syncCode == 200 ? IMPL_STATUS.waiting : IMPL_STATUS.wrong
-        let syncStatus = syncCode == 200 ? SYNC_STATUS.ok : SYNC_STATUS.not_received
-        if (syncCode != 200)
-          allOK = false
-        dbo.nodeTask.update_by_nodeTaskId(insertedId, { syncStatus, implStatus }, (err, rest) => { })
 
       }
-      //change the task status according to the above results
-      let implStatus = allOK ? IMPL_STATUS.waiting : IMPL_STATUS.wrong
-      dbo.task.update_by_taskId(task.id, { startAt: Date.now(), operStatus: OPER_STATUS.run, implStatus }, (err, rest) => {
+      dbo.task.update_by_taskId(task.id, { startAt: Date.now(),brandNew:false,paused:false}, (err, rest) => {
         err ? res.sendStatus(500) : res.json('ok')
       })
 
     }
     asyncActions()
   },
-  pause: (req, res) => {
-    changeOper(req, res, OPER_STATUS.pause)
+  pause: async (req, res) => {
+    var { taskId } = req.body
+    if (taskId == null)
+      return res.sendStatus(415)
+    await new Promise((resolve, reject) => {
+      dbo.nodeTask.update_by_taskId(taskId, { paused:true, needToNotifyOperChanged:true}, (err, result) => {
+        resolve(err)
+      })
+    });
+    dbo.task.update_by_taskId(taskId, { paused:true }, (err, rest) => {
+      err ? res.sendStatus(500) : res.json('ok')
+    })
   },
-  resume: (req, res) => {
-    changeOper(req, res, OPER_STATUS.run)
+  resume: async(req, res) => {
+    var { taskId } = req.body
+    if (taskId == null)
+      return res.sendStatus(415)
+    await new Promise((resolve, reject) => {
+      dbo.nodeTask.update_by_taskId(taskId, { paused:false,needToNotifyOperChanged:true }, (err, result) => {
+        resolve(err)
+      })
+    });
+    dbo.task.update_by_taskId(taskId, { paused:false }, (err, rest) => {
+      err ? res.sendStatus(500) : res.json('ok')
+    })
   },
   get: (req, res) => {
     var condition = req.body

@@ -28,8 +28,8 @@ var nodeTask={
         var param = {newNodeTask}
         postJson(url_base+'/task/add',token,param, callback)
     },
-    changeOper:(url_base,token,taskid,status,callback) => {
-        var param={taskId:taskid,status:status}
+    changeOper:(url_base,token,taskid,paused,callback) => {
+        var param={taskId:taskid,paused:paused}
         postJson(url_base+'/task/changeOper',token,param, callback)
     },
     delete:(url_base,token,nodeTaskId, callback) => {
