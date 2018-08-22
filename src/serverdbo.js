@@ -284,5 +284,8 @@ module.exports = {
     target,
     user,
     nodeTask,
-    plugin
+    plugin,
+
+    
+    insert
 }

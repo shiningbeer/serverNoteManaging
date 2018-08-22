@@ -189,31 +189,36 @@ const task = {
       return res.sendStatus(415)
     //todo: verify validity of newtask
     //todo: verify if the plugin designated exists in local disk, if not, return the message 'missing plugin' to the server 
-    let { pluginList, name,targetList} = newTask
+    let { pluginList, name,targetList,description} = newTask
     var ipRangeCount=0
     for(var target of targetList){
       ipRangeCount=ipRangeCount+target.lines
     }
 
-    delete newTask.pluginList
-    delete newTask.name
+    //split the task according to plugins
     for (var plugin of pluginList) {
       let name_without_ext = plugin.name.substring(0, plugin.name.length - 3)
       let newTaskToAdd = {
-        ...newTask,
+        //common
+        taskType:'zmapscan',
         name: name + '--' + name_without_ext,
-        plugin,
+        description,
         createdAt: Date.now(),
         user: req.tokenContainedInfo.user,
-        
-        goWrong:false,
         brandNew:true,
+        goWrong:false,        
         paused:true,
+        nodes:[],
 
+        //needed by zmap
+        targetList,        
+        port:plugin.port,
         zmapTotal:ipRangeCount,
         zmapProgress:0,
         zmapComplete:false,
 
+        //needed by scan
+        plugin,
         scanTotal:-1,
         scanProgress:0,
         scanComplete:false
@@ -297,78 +302,33 @@ const task = {
       }
       
   },
-  start: (req, res) => {
+  start: async (req, res) => {
     var task = req.body.task
     var nodes = req.body.nodeList
     if (task == null || nodes == null)
       return res.sendStatus(415)
     var { targetList, plugin } = task
-    //the following codes assume that the db operation will not go wrong, there is nothing has done for db exception.
-    var asyncActions = async () => {
-      let allIpRange = [], totalsum = 0
-
-      //merge all the ip of targets
-      for (var target of targetList) {
-        var iprange = await new Promise((resolve, reject) => {
-          dbo.target.getOne(target._id, (err, result) => {
-            resolve(result)
-          })
-        });
-        allIpRange.push(...iprange.ipRange)
-        totalsum = totalsum + iprange.ipTotal
-      }
-
-      //dispatch the lines according to node counts.
-      var { ipDispatch } = require('./ipdispatch2')
-      let dispatchList = ipDispatch(allIpRange, nodes.length)
-      //allot each node with a nodetask with dispatched ip
-
-      for (let i = 0; i < nodes.length; i++) {
-        // structure of nodeTask table
-        let newNodeTask = {
-          taskId: task.id,
-          taskName: task.name,
-          node: nodes[i],
-          plugin,
-          createdAt: Date.now(),
-          paused:false,
-
-          taskReceived:false,
-          scanRangeReceived:false,
-          needToNotifyOperChanged: false,
-          syncTime: Date.now(),
-          goWrong:false,
-          deleted:false,
-
-          zmapRange: dispatchList[i],    
-          zmapTotal:dispatchList[i].length,
-          zmapProgress:0,
-          zmapComplete:false,
-          zmapResult:[],
-
-          startScan:false,            
-          scanRange:[],
-          scanComplete:false,          
-          scanProgress: 0,
-          scanTotal:-1,
-          scanResult:[],
-
-          keyLog: [],
-        }
-
-        var insertedId = await new Promise((resolve, reject) => {
-          dbo.nodeTask.add(newNodeTask, (err, rest) => {
-            resolve(rest.insertedId)
-          })
-        });
-
-      }
-      dbo.task.update_by_taskId(task.id, { startAt: Date.now(),brandNew:false,paused:false}, (err, rest) => {
-        err ? res.sendStatus(500) : res.json('ok')
-      })
-
+    
+    //merge all the ip of targets
+    let allIpRange = []    
+    for (var target of targetList) {
+      var iprange = await new Promise((resolve, reject) => {
+        dbo.target.getOne(target._id, (err, result) => {
+          resolve(result)
+        })
+      });
+      allIpRange.push(...iprange.ipRange)
     }
-    asyncActions()
+    //create the iptable for the task
+    for(var ipr of iprange){
+      var ipR={ip:ipr,sent:false}
+      dbo.insert('ipRange'+task.id,ipR,(err, rest) => { })
+    }
+    //create the node table for the task
+    for(var node of nodes){
+      var n={node,continue:true}
+      dbo.insert('node'+task.id,n,(err, rest) => { })
+    }
   },
   pause: async (req, res) => {
     var { taskId } = req.body
@@ -500,7 +460,13 @@ const task = {
           }
           sum_progress = sum_progress + zmapProgress
         }
-        dbo.task.update_by_taskId(task._id, { zmapComplete:flag_complete,goWrong:flag_err, zmapProgress:sum_progress}, (err, rest) => { }) 
+        dbo.task.update_by_taskId(task._id, { zmapComplete:flag_complete,goWrong:flag_err, zmapProgress:sum_progress}, (err, rest) => { })
+        if(flag_complete){
+          //get all the zmapResult from the nodeTasks
+          //restore it to db
+          //split it to the number of nodetasks
+          //give them to each nodetask, and set the start
+        }
       })
     }
   }
