@@ -252,6 +252,16 @@ var nodeTask={
         }
         mod(TABLES.nodeTask, wherestr, updatestr,callback)
     },
+    push_by_nodeTaskId:(nodeTaskId,pushstr,callback)=>{
+        var _id=ObjectId(nodeTaskId)
+        var wherestr = {
+            _id: _id
+        }
+        var updatestr = {
+            $push: pushstr
+        }
+        mod(TABLES.nodeTask, wherestr, updatestr,callback)
+    },
     get :(wherestr,callback)=>{
         find(TABLES.nodeTask,wherestr,{},callback)
     },

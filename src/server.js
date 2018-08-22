@@ -78,6 +78,8 @@ var server = app.listen(1978, function () {
   // 定时更新任务
   setInterval(() => {
     task.syncedToNode()
+    task.syncFromNode()
+    task.collectNodeTasks()
 }, 5000);
 
 })

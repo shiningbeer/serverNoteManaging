@@ -227,46 +227,11 @@ const task = {
     if (taskId == null)
       return res.sendStatus(415)
     await new Promise((resolve, reject) => {
-      dbo.nodeTask.update_by_taskId(taskId, { deleted:true, syncedToNode:false}, (err, result) => {
+      dbo.nodeTask.update_by_taskId(taskId, { deleted:true}, (err, result) => {
         resolve(err)
       })
     });
-    dbo.task.del(taskId, (err, rest) => {err ? res.sendStatus(500) : res.json('ok') })
-    // var asyncActions = async () => {
-    //   //get all the nodetasks of this task
-    //   var nodetasks = await new Promise((resolve, reject) => {
-    //     dbo.nodeTask.get({ taskId }, (err, result) => {
-    //       resolve(result)
-    //     })
-    //   });
-    //   //notify all the node to delete the nodetask
-    //   for (var nodetask of nodetasks) {
-    //     //get all the node info
-    //     var nodeInfo = await new Promise((resolve, reject) => {
-    //       dbo.node.getOne(nodetask.node._id, (err, result) => {
-    //         resolve(result)
-    //       })
-    //     });
-    //     //access the node api to delete the nodetask
-    //     var syncCode = await new Promise((resolve, reject) => {
-    //       nodeApi.nodeTask.delete(nodeInfo.url, nodeInfo.token, nodetask._id, (code, body) => {
-    //         resolve(code)
-    //       })
-    //     });
-    //     console.log(syncCode)
-    //     //if return code is right, delete the server's nodetask
-    //     if (syncCode == 200) {
-    //       dbo.nodeTask.del_by_nodeTaskId(nodetask._id, (err, result) => { })
-    //     }
-    //     //otherwise, put operStatus as delete,syncStatus as not_sync, wait for the timing task to delete it later
-    //     else {
-    //       dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { operStatus: OPER_STATUS.delete, syncStatus: SYNC_STATUS.not_sync }, (err, result) => { })
-    //     }
-
-
-    //   }
-    // }
-    // asyncActions()
+    dbo.task.del(taskId, (err, rest) => {err ? res.sendStatus(500) : res.json('ok') })    
   },
   syncedToNode:async()=>{
       //get all nodeTasks
@@ -312,7 +277,7 @@ const task = {
           });
           // if return code is right, update the nodetask
           if (syncCode == 200) 
-            dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { taskReceived:true,needToNotifyOperChanged:false }, (err, rest) => { })
+            dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { taskReceived:true,needToNotifyOperChanged:false,syncTime: Date.now() }, (err, rest) => { })
           continue
         }
         //for the operation changed, that is ,the paused property of nodetask changed
@@ -323,7 +288,7 @@ const task = {
               })
             });
             if (syncCode == 200) 
-              dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { needToNotifyOperChanged:false }, (err, rest) => { })
+              dbo.nodeTask.update_by_nodeTaskId(nodetask._id, { needToNotifyOperChanged:false,syncTime: Date.now()}, (err, rest) => { })
         }
         //for the nodetask needs to start scan but the order and the scan-range not received by the node
         if(nodetask.startScan&&!nodetask.scanRangeReceived){
@@ -371,6 +336,7 @@ const task = {
           taskReceived:false,
           scanRangeReceived:false,
           needToNotifyOperChanged: false,
+          syncTime: Date.now(),
           goWrong:false,
           deleted:false,
 
@@ -378,12 +344,14 @@ const task = {
           zmapTotal:dispatchList[i].length,
           zmapProgress:0,
           zmapComplete:false,
+          zmapResult:[],
 
           startScan:false,            
           scanRange:[],
           scanComplete:false,          
           scanProgress: 0,
           scanTotal:-1,
+          scanResult:[],
 
           keyLog: [],
         }
@@ -420,7 +388,7 @@ const task = {
     if (taskId == null)
       return res.sendStatus(415)
     await new Promise((resolve, reject) => {
-      dbo.nodeTask.update_by_taskId(taskId, { paused:false,needToNotifyOperChanged:true }, (err, result) => {
+      dbo.nodeTask.update_by_taskId(taskId, { paused:false,needToNotifyOperChanged:true}, (err, result) => {
         resolve(err)
       })
     });
@@ -483,7 +451,7 @@ const task = {
     asyncActions()
 
   },
-  syncNode: async () => {
+  syncFromNode: async () => {
     //取出所有node
     var nodes = await new Promise((resolve, reject) => {
       dbo.node.get({}, (err, rest) => {
@@ -499,61 +467,43 @@ const task = {
           //将取回的nodetask数据更新到数据库
           //todo update node db of synctime
           for (var nodeTask of body) {
-            console.log(nodeTask)
-            let { nodeTaskId, keyLog, progress, ipTotal, implStatus, threadsAllot, zmapStatus } = nodeTask
-            dbo.nodeTask.update_by_nodeTaskId(nodeTaskId, { keyLog, progress, threadsAllot, ipTotal, implStatus, zmapStatus, syncTime: Date.now() }, (err, rest) => { })
+            
+            let { nodeTaskId, keyLog,goWrong, zmapProgress, zmapResult,zmapComplete,scanProgress,scanComplete } = nodeTask
+            dbo.nodeTask.update_by_nodeTaskId(nodeTaskId, { keyLog, goWrong, zmapProgress, zmapComplete,scanProgress,scanComplete, syncTime: Date.now() }, (err, rest) => { })
+            for(var item of zmapResult){
+            dbo.nodeTask.push_by_nodeTaskId(nodeTaskId,{zmapResult:item},(err, rest) => { })
+            }
           }
         }
       })
-    }
-    //取得所有未完成任务
-    var unfinishedTasks = await new Promise((resolve, reject) => {
-      dbo.task.get({
-        implStatus: { $ne: IMPL_STATUS.complete },
-        operStatus: OPER_STATUS.run,
-      }, (err, rest) => {
+    }    
+  },
+  collectNodeTasks:async()=>{
+    //get all the task that zmap is not complete
+    var zmapUnfinishedTasks = await new Promise((resolve, reject) => {
+      dbo.task.get({zmapComplete:false}, (err, rest) => {
         resolve(rest)
       })
     })
-    for (var task of unfinishedTasks) {
-      //找出该任务所有的节点任务
+    for (var task of zmapUnfinishedTasks) {
+      //get all its node tasks
+      let sum_progress=0
       dbo.nodeTask.get({ taskId: task._id.toString() }, (err, rest) => {
         let flag_complete = true//判断是否所有子任务都完成
         let flag_err = false//判断是否有出错的子任务
-        let err_msg = ''
-        let sum_ipTotal = 0
-        let sum_ipProgress = 0
-        let sum_threads = 0
         for (var nodetask of rest) {
-          let { threadsAllot, ipTotal, progress, implStatus } = nodetask
-          if (implStatus != IMPL_STATUS.complete)
+          let { goWrong, syncTime,zmapComplete,zmapProgress} = nodetask
+          if (!zmapComplete)
             flag_complete = false
-          if (implStatus == IMPL_STATUS.wrong) {
+          if (goWrong) {
             flag_err = true
           }
-          sum_ipProgress = sum_ipProgress + progress
-          sum_ipTotal = sum_ipTotal + ipTotal
-          sum_threads = sum_threads + threadsAllot
+          sum_progress = sum_progress + zmapProgress
         }
-        if (flag_complete) {
-          //标记任务已完成
-          dbo.task.update_by_taskId(task._id, { implStatus: IMPL_STATUS.complete, operStatus: OPER_STATUS.complete }, (err, rest) => { })
-        }
-
-        if (flag_err) {
-          //标记任务出错，记录错误信息
-          dbo.task.update_by_taskId(task._id, { implStatus: IMPL_STATUS.wrong }, (err, rest) => { })
-        }
-        //记录进度和总数
-        sum_ipTotal == 0 ? percent = 0 : percent = (sum_ipProgress / sum_ipTotal) * 100
-
-        dbo.task.update_by_taskId(task._id, { progress: sum_ipProgress, ipTotal: sum_ipTotal, percent: percent, threads: sum_threads }, (err, rest) => { })
-        if (percent == 100)
-          dbo.task.update_by_taskId(task._id, { implStatus: IMPL_STATUS.complete, operStatus: OPER_STATUS.complete }, (err, rest) => { })
-
+        dbo.task.update_by_taskId(task._id, { zmapComplete:flag_complete,goWrong:flag_err, zmapProgress:sum_progress}, (err, rest) => { }) 
       })
     }
-  },
+  }
 }
 const node = {
   add: (req, res) => {
