@@ -20,7 +20,61 @@ var connect = (url, dbname, callback) => {
     })
 }
 
-/* basic crub operation */
+var dropCol=(col,callback)=>{
+    dbo.collection(col).drop((err, rest) => {
+        callback(err,rest)
+    })
+}
+
+
+var insertCol = (col, insobj, callback) => {
+    dbo.collection(col).insertOne(insobj, (err, rest) => {
+        callback(err,rest)
+    })
+}
+
+var updateCol = (col, where, update, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)    
+    var updatestr = {$set: update}
+    dbo.collection(col).updateMany(where, updatestr, (err, rest) => {
+        callback(err,rest)
+    })
+}
+var deleteCol=(col, where, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)   
+    dbo.collection(col).deleteMany(where, (err, rest) => {
+        callback(err,rest)
+    })
+}
+
+var findoneCol = (col, where = {}, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)  
+    dbo.collection(col).findOne(where,(err, result) => {
+        callback(err, result)
+        
+    });
+}
+var findlimitCol = (col, where = {},limit, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)  
+    dbo.collection(col).find(where).limit(limit).toArray((err, result) => {
+        callback(err, result)
+    });
+
+}
+var findCol = (col, where = {}, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)  
+    dbo.collection(col).find(where).toArray((err, result) => {
+        callback(err, result)
+    });
+
+}
+
+
 var insert = (col, insobj, callback) => {
     dbo.collection(col).insertOne(insobj, (err, rest) => {
         callback(err,rest)
@@ -47,12 +101,14 @@ var find = (col, wherestr = {},sort={}, callback) => {
     });
 
 }
+
 var findOne = (col, wherestr = {}, callback) => {
-    dbo.collection(col).find(wherestr).toArray((err, result) => {
-       result.length>0?callback(err, result[0]):callback(err,null)
+    dbo.collection(col).findOne(wherestr,(err, result) => {
+        callback(err, result)
         
     });
 }
+
 
 /* exposed database api */
 
@@ -278,14 +334,21 @@ var nodeTask={
 
 
 module.exports = {
+    //new 
     connect,
+    dropCol,
+    findlimitCol,
+    insertCol,
+    findoneCol,
+    updateCol,
+    deleteCol,
+    findCol,
+    //removed later
     task,
     node,
     target,
     user,
     nodeTask,
     plugin,
-
     
-    insert
 }

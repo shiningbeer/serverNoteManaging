@@ -23,27 +23,24 @@ var postJson = (url,token,param, callback) => {
     }) 
 }
 
-var nodeTask={
-    add: (url_base,token,newNodeTask,callback) => {
-        var param = {newNodeTask}
-        postJson(url_base+'/task/add',token,param, callback)
+var zmapTask={
+    add: (url_base,token,task,callback) => {
+        var param = {task}
+        postJson(url_base+'/zmaptask/add',token,param, callback)
     },
-    changeOper:(url_base,token,taskid,paused,callback) => {
+    syncCommand:(url_base,token,taskid,paused,callback) => {
         var param={taskId:taskid,paused:paused}
-        postJson(url_base+'/task/changeOper',token,param, callback)
+        postJson(url_base+'/zmaptask/syncCommand',token,param, callback)
     },
-    delete:(url_base,token,nodeTaskId, callback) => {
-        var param = {nodeTaskId}
-        postJson(url_base+'/task/delete',token, param, callback)
+    delete:(url_base,token,id, callback) => {
+        var param = {taskId:id}
+        postJson(url_base+'/zmaptask/delete',token, param, callback)
     },
-    syncTask:(url_base,token,callback) => {
+    syncProgress:(url_base,token,callback) => {
         var param = {}
-        postJson(url_base+'/task/syncTask',token, param, callback)
+        postJson(url_base+'/zmaptask/syncProgress',token, param, callback)
     },
-    getResult:(url_base,token,nodeTaskId,skip,limit,callback) => {
-        var param = {nodeTaskId,skip,limit}
-        postJson(url_base+'/task/getResult',token, param, callback)
-    },
+
    
 
     // get:(condition={}, callback)=>{
@@ -131,5 +128,5 @@ var myCallback=(code,body)=>{
 
 
 module.exports = {
-    nodeTask,
+    zmapTask,
 }

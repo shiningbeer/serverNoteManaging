@@ -1,7 +1,7 @@
 var express = require('express')
 var bodypaser = require('body-parser')
 var multer = require('multer')
-const {myMiddleWare,user,task, node,target,plugin,nodeTask,connectDB}=require('./serverFunctions')
+const {myMiddleWare,user,task, node,target,plugin,keeper,connectDB}=require('./serverFunctions')
 
 
 
@@ -77,9 +77,11 @@ var server = app.listen(1978, function () {
   })
   // 定时更新任务
   setInterval(() => {
-    task.syncedToNode()
-    task.syncFromNode()
-    task.collectNodeTasks()
+    // task.syncedToNode()
+    // task.syncFromNode()
+    // task.collectNodeTasks()
+    keeper.zmapTaskDistribute()
+    keeper.zmapToNodeSync()
 }, 5000);
 
 })
