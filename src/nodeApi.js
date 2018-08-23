@@ -9,39 +9,39 @@ var fs = require('fs');
 //     postJson(api.auth,param, callback)
 // }
 
-var postJson = (url,token,param, callback) => {
+var postJson = (url, token, param, callback) => {
     request.post({
         url: url,
         json: true,
         headers: {
             "content-type": "application/json",
-            'token':token
+            'token': token
         },
         body: param
     }, (error, response, body) => {
-        error?callback(600,error):callback(response.statusCode,body)   
-    }) 
+        error ? callback(600, error) : callback(response.statusCode, body)
+    })
 }
 
-var zmapTask={
-    add: (url_base,token,task,callback) => {
-        var param = {task}
-        postJson(url_base+'/zmaptask/add',token,param, callback)
+var zmapTask = {
+    add: (url_base, token, task, callback) => {
+        var param = { task }
+        postJson(url_base + '/zmaptask/add', token, param, callback)
     },
-    syncCommand:(url_base,token,taskid,paused,callback) => {
-        var param={taskId:taskid,paused:paused}
-        postJson(url_base+'/zmaptask/syncCommand',token,param, callback)
+    syncCommand: (url_base, token, taskid, paused, callback) => {
+        var param = { taskId: taskid, paused: paused }
+        postJson(url_base + '/zmaptask/syncCommand', token, param, callback)
     },
-    delete:(url_base,token,id, callback) => {
-        var param = {taskId:id}
-        postJson(url_base+'/zmaptask/delete',token, param, callback)
+    delete: (url_base, token, id, callback) => {
+        var param = { taskId: id }
+        postJson(url_base + '/zmaptask/delete', token, param, callback)
     },
-    syncProgress:(url_base,token,callback) => {
-        var param = {}
-        postJson(url_base+'/zmaptask/syncProgress',token, param, callback)
+    syncProgress: (url_base, token, id, callback) => {
+        var param = { taskId: id }
+        postJson(url_base + '/zmaptask/syncProgress', token, param, callback)
     },
 
-   
+
 
     // get:(condition={}, callback)=>{
     //     var param={
@@ -49,7 +49,7 @@ var zmapTask={
     //     }
     //     postJson(api.nodeTask.get, param, callback)
     // }
-    
+
 }
 
 
@@ -110,7 +110,7 @@ var zmapTask={
 // }
 
 
-var myCallback=(code,body)=>{
+var myCallback = (code, body) => {
     console.log(code)
     console.log(body)
 }

@@ -6,26 +6,26 @@ var fs = require('fs')
 
 const OPER_STATUS = {
   new: 'new',
-  wrong:'wrong',
-  waiting:'waiting',
+  wrong: 'wrong',
+  waiting: 'waiting',
   run: 'run',
   pause: 'pause',
   complete: 'complete',
   delete: 'delete'
 }
-const TASK_STATUS={
-  new:'new',
+const TASK_STATUS = {
+  new: 'new',
   run: 'run',
-  wrong:'wrong',
-  pause:'pause',
-  complete:'complete',
-  delete:'delete'
+  wrong: 'wrong',
+  pause: 'pause',
+  complete: 'complete',
+  delete: 'delete'
 }
-const TASK_STAGE={
-  waiting:'waiting',
-  runZmap:'runZmap',
-  runScan:'runScan',
-  complete:'complete'
+const TASK_STAGE = {
+  waiting: 'waiting',
+  runZmap: 'runZmap',
+  runScan: 'runScan',
+  complete: 'complete'
 }
 const SCAN_STATUS = {
   wrong: 'wrong',
@@ -177,116 +177,115 @@ const changeOper = async (req, res, newOperStatus) => {
   // }
   //in the end, update the status of task itself
   // let status=allOK?TASK_STATUS.run:TASK_STATUS.wrong
-  dbo.task.update_by_taskId(taskId, {paused:newOperStatus}, (err, rest) => {
+  dbo.task.update_by_taskId(taskId, { paused: newOperStatus }, (err, rest) => {
     err ? res.sendStatus(500) : res.json('ok')
   })
 }
 
-const keeper={
-  zmapTaskDistribute:async ()=>{
+const keeper = {
+  zmapTaskDistribute: async () => {
     //find all zmapIpAllSent=false and not paused and started
     var zmaptasks = await new Promise((resolve, reject) => {
-      dbo.task.get({started:true,zmapIpAllSent:false,paused:false},(err, result) => {
+      dbo.task.get({ started: true, zmapIpAllSent: false, paused: false }, (err, result) => {
         resolve(result)
       })
     })
-    
-    for ( var task of zmaptasks){
-      while (true){
+
+    for (var task of zmaptasks) {
+      while (true) {
         //keep finding a useable node until no node available or no ipRange left
-        var usableNode =await new Promise((resolve, reject) => {
-          dbo.findoneCol('node'+task._id,{continue:true},(err, result) => {
+        var usableNode = await new Promise((resolve, reject) => {
+          dbo.findoneCol('node' + task._id, { continue: true }, (err, result) => {
             resolve(result)
           })
         })
         //if no node available, break
-        if(usableNode==null)
+        if (usableNode == null)
           break;
         //else, get a number of ipRange to distribute
-        var ips =await new Promise((resolve, reject) => {
-          dbo.findlimitCol('ipRange'+task._id,{sent:false},10,(err, result) => {
+        var ips = await new Promise((resolve, reject) => {
+          dbo.findlimitCol('ipRange' + task._id, { sent: false }, 10, (err, result) => {
             resolve(result)
           })
         })
         // if no ipRange left
-        if(ips.length==0){
+        if (ips.length == 0) {
           await new Promise((resolve, reject) => {
-            dbo.task.update_by_taskId(task._id,{zmapIpAllSent:true},(err, result) => {resolve(result)})
+            dbo.task.update_by_taskId(task._id, { zmapIpAllSent: true }, (err, result) => { resolve(result) })
           })
           break;
         }
         //distribute
-        let zmapRange=[]
-        for( var ip of ips){
+        let zmapRange = []
+        for (var ip of ips) {
           zmapRange.push(ip.ip)
         }
-       
-        let newZmapTask={
+
+        let newZmapTask = {
           //info need not send to node
-          node:usableNode.node,
-          needToSync:false,
-          received:false,
-          syncSucess:false,
-          taskId:task._id.toString(),
+          node: usableNode.node,
+          needToSync: false,
+          received: false,
+          taskId: task._id.toString(),
 
           //task basic info          
-          ipRange:zmapRange,
-          port:task.port,
-          ipTotal:zmapRange.length,
+          ipRange: zmapRange,
+          port: task.port,
+          ipTotal: zmapRange.length,
 
           //sync from node
-          goWrong:false,
-          progress:0,               
-          complete:false,
+          goWrong: false,
+          progress: 0,
+          complete: false,
 
           //sync to node
-          paused:false,
-          deleted:false,   
-          
-          
+          paused: false,
+          deleted: false,
+
+
         }
         await new Promise((resolve, reject) => {
-          dbo.insertCol('zmapNodeTask',newZmapTask,(err, result) => {resolve(result)})
+          dbo.insertCol('zmapNodeTask', newZmapTask, (err, result) => { resolve(result) })
         })
         await new Promise((resolve, reject) => {
-          dbo.updateCol('node'+task._id,{_id:usableNode._id},{continue:false},(err, result) => {resolve(result)})
+          dbo.updateCol('node' + task._id, { _id: usableNode._id }, { continue: false }, (err, result) => { resolve(result) })
         })
-        for(var ip of ips){
+        for (var ip of ips) {
           await new Promise((resolve, reject) => {
-            dbo.updateCol('ipRange'+task._id,{_id:ip._id},{sent:true},(err, result) => {resolve(result)})
+            dbo.updateCol('ipRange' + task._id, { _id: ip._id }, { sent: true }, (err, result) => { resolve(result) })
           })
         }
       }
 
-    } 
+    }
   },
-  zmapToNodeSync:async()=>{
+  zmapToNodeSync: async () => {
     //first deal deleted
     var deletedTasks = await new Promise((resolve, reject) => {
-      dbo.findCol('zmapNodeTask',{deleted:true},(err, result) => {
+      dbo.findCol('zmapNodeTask', { deleted: true }, (err, result) => {
         resolve(result)
       })
     });
-    
-    for(var task of deletedTasks){
+
+    for (var task of deletedTasks) {
       //if not received, delete directly
-      if(!task.received){
+      if (!task.received) {
         await new Promise((resolve, reject) => {
-          dbo.deleteCol('zmapNodeTask',{_id:task._id.toString()},(err, result) => {resolve(result)})
+          dbo.deleteCol('zmapNodeTask', { _id: task._id.toString() }, (err, result) => { resolve(result) })
         })
         continue
       }
       //take out the node
       var t_node = await new Promise((resolve, reject) => {
-        dbo.findoneCol('node',{_id:task.node._id},(err,result)=>{
+        dbo.findoneCol('node', { _id: task.node._id }, (err, result) => {
           resolve(result)
         })
       })
       //if the node is missing, just delete the task
-      if(t_node==null){
+      if (t_node == null) {
         await new Promise((resolve, reject) => {
-          dbo.deleteCol('zmapNodeTask',{_id:task._id.toString()},(err, result) => {resolve(result)})
-            
+          dbo.deleteCol('zmapNodeTask', { _id: task._id.toString() }, (err, result) => { resolve(result) })
+
         })
         continue
       }
@@ -299,28 +298,28 @@ const keeper={
       //if return code is right, delete the server side task
       if (syncCode == 200) {
         await new Promise((resolve, reject) => {
-          dbo.deleteCol('zmapNodeTask',{_id:task._id.toString()},(err, result) => {resolve(result)})
-            
+          dbo.deleteCol('zmapNodeTask', { _id: task._id.toString() }, (err, result) => { resolve(result) })
+
         })
       }
     }
 
     //then deal the not received
     var notReceivedTasks = await new Promise((resolve, reject) => {
-      dbo.findCol('zmapNodeTask',{received:false},(err, result) => {
+      dbo.findCol('zmapNodeTask', { received: false }, (err, result) => {
         resolve(result)
       })
     });
-    
-    for (var task of notReceivedTasks){
+
+    for (var task of notReceivedTasks) {
       //take out the node
       var t_node = await new Promise((resolve, reject) => {
-        dbo.findoneCol('node',{_id:task.node._id},(err,result)=>{
+        dbo.findoneCol('node', { _id: task.node._id }, (err, result) => {
           resolve(result)
         })
       })
       //if the node is missing, omit
-      if(t_node==null)        
+      if (t_node == null)
         continue
       //access the node to send the task
       var syncCode = await new Promise((resolve, reject) => {
@@ -331,46 +330,97 @@ const keeper={
         delete task.syncSucess
         delete task.taskId
         delete task.deleted
-        task.taskId=task._id
+        task.taskId = task._id
         delete task._id
         nodeApi.zmapTask.add(t_node.url, t_node.token, task, (code, body) => {
           resolve(code)
         })
       });
       // if return code is right, update the nodetask
-      if (syncCode == 200) 
-          await new Promise((resolve, reject) => {
-            dbo.updateCol('zmapNodeTask',{_id:task.taskId.toString()},{received:true,needToSync:false}, (err, rest) => {resolve(rest)})
-            
-          })
+      if (syncCode == 200)
+        await new Promise((resolve, reject) => {
+          dbo.updateCol('zmapNodeTask', { _id: task.taskId.toString() }, { received: true, needToSync: false }, (err, rest) => { resolve(rest) })
+
+        })
     }
     //last to deal with the needToSync
     var needToSyncTasks = await new Promise((resolve, reject) => {
-      dbo.findCol('zmapNodeTask',{needToSync:true,complete:false},(err, result) => {
+      dbo.findCol('zmapNodeTask', { needToSync: true, complete: false }, (err, result) => {
         resolve(result)
       })
     });
-    for (var task of needToSyncTasks){
+    for (var task of needToSyncTasks) {
       //take out the node
       var t_node = await new Promise((resolve, reject) => {
-        dbo.findoneCol('node',{_id:task.node._id},(err,result)=>{
+        dbo.findoneCol('node', { _id: task.node._id }, (err, result) => {
           resolve(result)
         })
       })
       //if the node is missing, omit
-      if(t_node==null)        
+      if (t_node == null)
         continue
       var syncCode = await new Promise((resolve, reject) => {
         nodeApi.zmapTask.syncCommand(t_node.url, t_node.token, task._id.toString(), task.paused, (code, body) => {
           resolve(code)
         })
       });
-      if (syncCode == 200) 
-          await new Promise((resolve, reject) => {
-            dbo.updateCol('zmapNodeTask',{_id:task._id.toString()},{needToSync:false}, (err, rest) => {resolve(rest)})
-            
-          })
+      if (syncCode == 200)
+        await new Promise((resolve, reject) => {
+          dbo.updateCol('zmapNodeTask', { _id: task._id.toString() }, { needToSync: false }, (err, rest) => { resolve(rest) })
+
+        })
     }
+  },
+  zmapSyncProgress: async () => {
+    //get not paused and not complete zmaptask
+    var syncProgressTasks = await new Promise((resolve, reject) => {
+      dbo.findCol('zmapNodeTask', { complete: false, paused: false }, (err, result) => {
+        resolve(result)
+      })
+    });
+    for (var task of syncProgressTasks) {
+      //take out the node
+      var t_node = await new Promise((resolve, reject) => {
+        dbo.findoneCol('node', { _id: task.node._id }, (err, result) => {
+          resolve(result)
+        })
+      })
+      //if the node is missing, omit
+      if (t_node == null)
+        continue
+      var syncResult = await new Promise((resolve, reject) => {
+        nodeApi.zmapTask.syncProgress(t_node.url, t_node.token, task._id.toString(), (code, body) => {
+          code == 200 ? resolve(body) : resolve(null)
+        })
+      })
+      console.log(syncResult)
+    }
+
+
+    // var nodes = await new Promise((resolve, reject) => {
+    //   dbo.node.get({}, (err, rest) => {
+    //     resolve(rest)
+    //   })
+    // })
+    // //依次访问节点服务器
+    // for (var anode of nodes) {
+    //   let { url, token } = anode
+    //   nodeApi.zmapTask.syncTask(url, token, (code, body) => {
+    //     //待做，如果code不为200，设置该节点不在线
+    //     if (code == 200) {
+    //       //将取回的nodetask数据更新到数据库
+    //       //todo update node db of synctime
+    //       for (var nodeTask of body) {
+
+    //         let { nodeTaskId, keyLog, goWrong, zmapProgress, zmapResult, zmapComplete, scanProgress, scanComplete } = nodeTask
+    //         dbo.nodeTask.update_by_nodeTaskId(nodeTaskId, { keyLog, goWrong, zmapProgress, zmapComplete, scanProgress, scanComplete, syncTime: Date.now() }, (err, rest) => { })
+    //         for (var item of zmapResult) {
+    //           dbo.nodeTask.push_by_nodeTaskId(nodeTaskId, { zmapResult: item }, (err, rest) => { })
+    //         }
+    //       }
+    //     }
+    //   })
+    // }
   },
 }
 const task = {
@@ -380,10 +430,10 @@ const task = {
       return res.sendStatus(415)
     //todo: verify validity of newtask
     //todo: verify if the plugin designated exists in local disk, if not, return the message 'missing plugin' to the server 
-    let { pluginList, name,targetList,description} = newTask
-    var ipRangeCount=0
-    for(var target of targetList){
-      ipRangeCount=ipRangeCount+target.lines
+    let { pluginList, name, targetList, description } = newTask
+    var ipRangeCount = 0
+    for (var target of targetList) {
+      ipRangeCount = ipRangeCount + target.lines
     }
 
     //split the task according to plugins
@@ -391,30 +441,30 @@ const task = {
       let name_without_ext = plugin.name.substring(0, plugin.name.length - 3)
       let newTaskToAdd = {
         //common
-        taskType:'zmapscan',
+        taskType: 'zmapscan',
         name: name + '--' + name_without_ext,
         description,
-        started:false,
+        started: false,
         createdAt: Date.now(),
         user: req.tokenContainedInfo.user,
-        brandNew:true,
-        goWrong:false,        
-        paused:true,
-        nodes:[],
+        brandNew: true,
+        goWrong: false,
+        paused: true,
+        nodes: [],
 
         //needed by zmap
-        targetList,        
-        port:plugin.port,
-        zmapTotal:ipRangeCount,
-        zmapProgress:0,
-        zmapComplete:false,
-        zmapIpAllSent:false,
+        targetList,
+        port: plugin.port,
+        zmapTotal: ipRangeCount,
+        zmapProgress: 0,
+        zmapComplete: false,
+        zmapIpAllSent: false,
 
         //needed by scan
         plugin,
-        scanTotal:-1,
-        scanProgress:0,
-        scanComplete:false
+        scanTotal: -1,
+        scanProgress: 0,
+        scanComplete: false
       }
       dbo.task.add(newTaskToAdd, (err, rest) => { })
     }
@@ -424,26 +474,26 @@ const task = {
     var taskId = req.body.taskId
     if (taskId == null)
       return res.sendStatus(415)
-    
+
     //delete the two tables created when start the task
-    dbo.dropCol('node'+taskId,(err, result) => { })
-    dbo.dropCol('ipRange'+taskId,(err, result) => { })
+    dbo.dropCol('node' + taskId, (err, result) => { })
+    dbo.dropCol('ipRange' + taskId, (err, result) => { })
     //delete the sub tasks produced by this task
-    dbo.updateCol('zmapNodeTask',{taskId},{deleted:true},(err, result) => { })
-    dbo.updateCol('scanNodeTask',{taskId},{deleted:true},(err, result) => { })
+    dbo.updateCol('zmapNodeTask', { taskId }, { deleted: true }, (err, result) => { })
+    dbo.updateCol('scanNodeTask', { taskId }, { deleted: true }, (err, result) => { })
     //delete the task it self
-    dbo.task.del(taskId, (err, rest) => {err ? res.sendStatus(500) : res.json('ok') })    
+    dbo.task.del(taskId, (err, rest) => { err ? res.sendStatus(500) : res.json('ok') })
   },
-  
+
   start: async (req, res) => {
     var task = req.body.task
     var nodes = req.body.nodeList
     if (task == null || nodes == null)
       return res.sendStatus(415)
     var { targetList, plugin } = task
-    
+
     //merge all the ip of targets
-    let allIpRange = []    
+    let allIpRange = []
     for (var target of targetList) {
       var iprange = await new Promise((resolve, reject) => {
         dbo.target.getOne(target._id, (err, result) => {
@@ -453,20 +503,20 @@ const task = {
       allIpRange.push(...iprange.ipRange)
     }
     //create the iptable for the task
-    for(var ipr of allIpRange){
-      var ipR={ip:ipr,sent:false}
+    for (var ipr of allIpRange) {
+      var ipR = { ip: ipr, sent: false }
       await new Promise((resolve, reject) => {
-        dbo.insertCol('ipRange'+task.id,ipR,(err, rest) => {resolve(rest) })
-      })
-  }
-    //create the node table for the task
-    for(var node of nodes){
-      var n={node,continue:true}
-      await new Promise((resolve, reject) => {
-        dbo.insertCol('node'+task.id,n,(err, rest) => {resolve(rest)  })
+        dbo.insertCol('ipRange' + task.id, ipR, (err, rest) => { resolve(rest) })
       })
     }
-    dbo.task.update_by_taskId(task.id,{started:true,paused:false},(err, rest) => { 
+    //create the node table for the task
+    for (var node of nodes) {
+      var n = { node, continue: true }
+      await new Promise((resolve, reject) => {
+        dbo.insertCol('node' + task.id, n, (err, rest) => { resolve(rest) })
+      })
+    }
+    dbo.task.update_by_taskId(task.id, { started: true, paused: false }, (err, rest) => {
       err ? res.sendStatus(500) : res.json('ok')
     })
   },
@@ -477,29 +527,29 @@ const task = {
 
     //set the related sub tasks which are not completed as paused
     await new Promise((resolve, reject) => {
-      dbo.updateCol('zmapNodeTask', {taskId,complete:false},{ paused:true, needToSync:true}, (err, result) => {resolve(err)})
+      dbo.updateCol('zmapNodeTask', { taskId, complete: false }, { paused: true, needToSync: true }, (err, result) => { resolve(err) })
     });
     await new Promise((resolve, reject) => {
-      dbo.updateCol('scanNodeTask', {taskId,complete:false},{ paused:true, needToSync:true}, (err, result) => {resolve(err)})
+      dbo.updateCol('scanNodeTask', { taskId, complete: false }, { paused: true, needToSync: true }, (err, result) => { resolve(err) })
     });
     //set the task itself as paused
-    dbo.task.update_by_taskId(taskId, { paused:true }, (err, rest) => {
+    dbo.task.update_by_taskId(taskId, { paused: true }, (err, rest) => {
       err ? res.sendStatus(500) : res.json('ok')
     })
   },
-  resume: async(req, res) => {
+  resume: async (req, res) => {
     var { taskId } = req.body
     if (taskId == null)
       return res.sendStatus(415)
     //set the related sub tasks which are not completed as not paused
     await new Promise((resolve, reject) => {
-      dbo.updateCol('zmapNodeTask', {taskId,complete:false},{ paused:false, needToSync:true}, (err, result) => {resolve(err)})
+      dbo.updateCol('zmapNodeTask', { taskId, complete: false }, { paused: false, needToSync: true }, (err, result) => { resolve(err) })
     });
     await new Promise((resolve, reject) => {
-      dbo.updateCol('scanNodeTask', {taskId,complete:false},{ paused:false, needToSync:true}, (err, result) => {resolve(err)})
+      dbo.updateCol('scanNodeTask', { taskId, complete: false }, { paused: false, needToSync: true }, (err, result) => { resolve(err) })
     });
     //set the task itself as not paused
-    dbo.task.update_by_taskId(taskId, { paused:false }, (err, rest) => {
+    dbo.task.update_by_taskId(taskId, { paused: false }, (err, rest) => {
       err ? res.sendStatus(500) : res.json('ok')
     })
   },
@@ -556,48 +606,22 @@ const task = {
     // asyncActions()
 
   },
-  syncFromNode: async () => {
-    //取出所有node
-    var nodes = await new Promise((resolve, reject) => {
-      dbo.node.get({}, (err, rest) => {
-        resolve(rest)
-      })
-    })
-    //依次访问节点服务器
-    for (var anode of nodes) {
-      let { url, token } = anode
-      nodeApi.zmapTask.syncTask(url, token, (code, body) => {
-        //待做，如果code不为200，设置该节点不在线
-        if (code == 200) {
-          //将取回的nodetask数据更新到数据库
-          //todo update node db of synctime
-          for (var nodeTask of body) {
-            
-            let { nodeTaskId, keyLog,goWrong, zmapProgress, zmapResult,zmapComplete,scanProgress,scanComplete } = nodeTask
-            dbo.nodeTask.update_by_nodeTaskId(nodeTaskId, { keyLog, goWrong, zmapProgress, zmapComplete,scanProgress,scanComplete, syncTime: Date.now() }, (err, rest) => { })
-            for(var item of zmapResult){
-            dbo.nodeTask.push_by_nodeTaskId(nodeTaskId,{zmapResult:item},(err, rest) => { })
-            }
-          }
-        }
-      })
-    }    
-  },
-  collectNodeTasks:async()=>{
+
+  collectNodeTasks: async () => {
     //get all the task that zmap is not complete
     var zmapUnfinishedTasks = await new Promise((resolve, reject) => {
-      dbo.task.get({zmapComplete:false}, (err, rest) => {
+      dbo.task.get({ zmapComplete: false }, (err, rest) => {
         resolve(rest)
       })
     })
     for (var task of zmapUnfinishedTasks) {
       //get all its node tasks
-      let sum_progress=0
+      let sum_progress = 0
       dbo.nodeTask.get({ taskId: task._id.toString() }, (err, rest) => {
         let flag_complete = true//判断是否所有子任务都完成
         let flag_err = false//判断是否有出错的子任务
         for (var nodetask of rest) {
-          let { goWrong, syncTime,zmapComplete,zmapProgress} = nodetask
+          let { goWrong, syncTime, zmapComplete, zmapProgress } = nodetask
           if (!zmapComplete)
             flag_complete = false
           if (goWrong) {
@@ -605,8 +629,8 @@ const task = {
           }
           sum_progress = sum_progress + zmapProgress
         }
-        dbo.task.update_by_taskId(task._id, { zmapComplete:flag_complete,goWrong:flag_err, zmapProgress:sum_progress}, (err, rest) => { })
-        if(flag_complete){
+        dbo.task.update_by_taskId(task._id, { zmapComplete: flag_complete, goWrong: flag_err, zmapProgress: sum_progress }, (err, rest) => { })
+        if (flag_complete) {
           //get all the zmapResult from the nodeTasks
           //restore it to db
           //split it to the number of nodetasks
