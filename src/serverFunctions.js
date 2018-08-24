@@ -389,6 +389,11 @@ const task = {
   getAllResult:async (req, res) => {
     var nodetasks=req.body
     var sum=0
+    var elasticsearch = require('elasticsearch');
+    var client = new elasticsearch.Client({
+      host: 'localhost:9200',
+      log: 'trace'
+    });
     for(var task of nodetasks){
       var nodeTaskId=task._id
       var nodeId=task.node._id
@@ -413,6 +418,18 @@ const task = {
             console.log(r)
             delete r._id
             dbo.insert(task.taskId+'--result',r,(err,rest)=>{})
+            client.index({
+              index: task.taskName+task.taskId, //相当于database
+              type:'data',  //相当于table
+              body: {
+                ip:r.IP,
+                data:r.data
+              }
+            }, (error, response)=>{
+              // 
+              console.log(error)
+              console.log(response)
+            });
           }
        
     }
