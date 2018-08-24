@@ -45,6 +45,7 @@ app.post('/task/get',task.get)
 app.post('/task/getdetail',task.getDetail)
 app.post('/task/getNodeTasks',task.getNodeTasks)
 app.post('/task/nodeTaskResult',task.nodeTaskResult)
+app.post('/task/getAllResult',task.getAllResult)
 
 
 

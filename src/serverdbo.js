@@ -274,5 +274,6 @@ module.exports = {
     target,
     user,
     nodeTask,
+    insert,
     plugin
 }

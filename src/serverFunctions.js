@@ -359,7 +359,8 @@ const task = {
     var { nodeTaskId, nodeId, skip, limit } = req.body
     if (nodeTaskId == null || skip == null || limit == null || nodeId == null)
       return res.sendStatus(415)
-
+    console.log(skip)
+    console.log(limit)
     var asyncActions = async () => {
       var anode = await new Promise((resolve, reject) => {
         dbo.node.getOne(nodeId, (err, result) => {
@@ -384,6 +385,39 @@ const task = {
     }
     asyncActions()
 
+  },
+  getAllResult:async (req, res) => {
+    var nodetasks=req.body
+    var sum=0
+    for(var task of nodetasks){
+      var nodeTaskId=task._id
+      var nodeId=task.node._id
+        var anode = await new Promise((resolve, reject) => {
+          dbo.node.getOne(nodeId, (err, result) => {
+            resolve(result)
+          })
+        })
+        let { url, token } = anode
+        var taskResult = await new Promise((resolve, reject) => {
+          nodeApi.nodeTask.getResult(url, token, nodeTaskId, 0, 10, (code, body) => {
+            //待做，如果code不为200，设置该节点不在线
+            if (code == 200) {
+              resolve(body)
+            }
+            else
+              resolve({ code: code, body: body })
+          })
+        })
+        sum=sum+taskResult.count
+          for (var r of taskResult.samples){
+            console.log(r)
+            delete r._id
+            dbo.insert(task.taskId+'--result',r,(err,rest)=>{})
+          }
+       
+    }
+    console.log(sum)
+    res.json(sum.toString())
   },
   syncNode: async () => {
     //取出所有node
@@ -451,7 +485,7 @@ const task = {
 
         dbo.task.update_by_taskId(task._id, { progress: sum_ipProgress, ipTotal: sum_ipTotal, percent: percent, threads: sum_threads }, (err, rest) => { })
         if (percent == 100)
-          dbo.task.update_by_taskId(task._id, { implStatus: IMPL_STATUS.complete, operStatus: OPER_STATUS.complete }, (err, rest) => { })
+          dbo.task.update_by_taskId(task._id, { implStatus: IMPL_STATUS.complete, operStatus: OPER_STATUS.complete,completeAt:Date.now(),timeSpan:Date.now()-task.startAt }, (err, rest) => { })
 
       })
     }
