@@ -808,7 +808,7 @@ const plugin = {
   },
 }
 const connectDB = (callback) => {
-  dbo.connect("mongodb://localhost:27017", 'cent', callback)
+  dbo.connect("mongodb://localhost:27017", 'centDev2', callback)
 }
 module.exports = {
   myMiddleWare,
