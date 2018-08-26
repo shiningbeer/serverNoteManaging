@@ -394,34 +394,42 @@ const keeper = {
         })
       })
       console.log(syncResult)
+      let {
+        goWrong,
+        progress,
+        complete,
+        running,
+        latestResult,
+      } = syncResult
     }
+  }
 
 
-    // var nodes = await new Promise((resolve, reject) => {
-    //   dbo.node.get({}, (err, rest) => {
-    //     resolve(rest)
-    //   })
-    // })
-    // //依次访问节点服务器
-    // for (var anode of nodes) {
-    //   let { url, token } = anode
-    //   nodeApi.zmapTask.syncTask(url, token, (code, body) => {
-    //     //待做，如果code不为200，设置该节点不在线
-    //     if (code == 200) {
-    //       //将取回的nodetask数据更新到数据库
-    //       //todo update node db of synctime
-    //       for (var nodeTask of body) {
+  // var nodes = await new Promise((resolve, reject) => {
+  //   dbo.node.get({}, (err, rest) => {
+  //     resolve(rest)
+  //   })
+  // })
+  // //依次访问节点服务器
+  // for (var anode of nodes) {
+  //   let { url, token } = anode
+  //   nodeApi.zmapTask.syncTask(url, token, (code, body) => {
+  //     //待做，如果code不为200，设置该节点不在线
+  //     if (code == 200) {
+  //       //将取回的nodetask数据更新到数据库
+  //       //todo update node db of synctime
+  //       for (var nodeTask of body) {
 
-    //         let { nodeTaskId, keyLog, goWrong, zmapProgress, zmapResult, zmapComplete, scanProgress, scanComplete } = nodeTask
-    //         dbo.nodeTask.update_by_nodeTaskId(nodeTaskId, { keyLog, goWrong, zmapProgress, zmapComplete, scanProgress, scanComplete, syncTime: Date.now() }, (err, rest) => { })
-    //         for (var item of zmapResult) {
-    //           dbo.nodeTask.push_by_nodeTaskId(nodeTaskId, { zmapResult: item }, (err, rest) => { })
-    //         }
-    //       }
-    //     }
-    //   })
-    // }
-  },
+  //         let { nodeTaskId, keyLog, goWrong, zmapProgress, zmapResult, zmapComplete, scanProgress, scanComplete } = nodeTask
+  //         dbo.nodeTask.update_by_nodeTaskId(nodeTaskId, { keyLog, goWrong, zmapProgress, zmapComplete, scanProgress, scanComplete, syncTime: Date.now() }, (err, rest) => { })
+  //         for (var item of zmapResult) {
+  //           dbo.nodeTask.push_by_nodeTaskId(nodeTaskId, { zmapResult: item }, (err, rest) => { })
+  //         }
+  //       }
+  //     }
+  //   })
+  // }
+},
 }
 const task = {
   add: (req, res) => {
