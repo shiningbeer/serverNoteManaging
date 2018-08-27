@@ -76,10 +76,26 @@ var findlimitCol = (col, where = {},limit, callback) => {
     });
 
 }
+var findFieldCol = (col, where = {},field, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)  
+    dbo.collection(col).find(where,field).toArray((err, result) => {
+        callback(err, result)
+    });
+
+}
 var findCol = (col, where = {}, callback) => {
     if(where._id!=null)
         where._id=ObjectId(where._id)  
     dbo.collection(col).find(where).toArray((err, result) => {
+        callback(err, result)
+    });
+
+}
+var getCount = (col, where = {}, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)  
+    dbo.collection(col).find(where).count((err, result) => {
         callback(err, result)
     });
 
@@ -355,6 +371,8 @@ module.exports = {
     deleteCol,
     findCol,
     pushCol,
+    getCount,
+    findFieldCol,
     //removed later
     task,
     node,

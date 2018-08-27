@@ -370,8 +370,9 @@ const keeper = {
     }
   },
   zmapCollect: async ()=>{
+    //pick out the zmap-uncompleted  task
     var zmaptasks = await new Promise((resolve, reject) => {
-      dbo.task.get({ started: true, complete: false, paused: false }, (err, result) => {
+      dbo.findCol('task',{ started: true, zmapComplete: false, paused: false }, (err, result) => {
         resolve(result)
       })
     })
@@ -379,11 +380,17 @@ const keeper = {
     //total progress: the number of ip sent - (batch -progress) of each node
     //if progress=total, the task is complete
     for (var task of zmaptasks){
-      var sentCount = await new Promise((resolve, reject) => {
-        dbo.findCol('ipRange' + task._id, { sent: false }, 10, (err, result) => {
+      var nodetasks=await new Promise((resolve, reject) => {
+        dbo.findFieldCol('zmapNodeTask', { taskId:task._id.toString()},{progress:1}, (err, result) => {
           resolve(result)
         })
       });
+      let total=0
+      for(var nodetask of nodetasks)
+        total=total+nodetask.progress
+        
+      console.log(total)
+
     }
 
   }

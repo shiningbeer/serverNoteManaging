@@ -83,6 +83,7 @@ var server = app.listen(1978, function () {
     keeper.zmapTaskDistribute()
     keeper.zmapToNodeSync()
     keeper.zmapSyncProgress()
+    keeper.zmapCollect()
   }, 5000);
 
 })
