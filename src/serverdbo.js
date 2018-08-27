@@ -35,12 +35,23 @@ var insertCol = (col, insobj, callback) => {
 
 var updateCol = (col, where, update, callback) => {
     if(where._id!=null)
-        where._id=ObjectId(where._id)    
+        where._id=ObjectId(where._id)   
     var updatestr = {$set: update}
     dbo.collection(col).updateMany(where, updatestr, (err, rest) => {
         callback(err,rest)
     })
 }
+var pushCol=(col,where,pushstr,callback)=>{
+    if(where._id!=null)
+        where._id=ObjectId(where._id) 
+    var updatestr = {
+        $push: pushstr
+    }
+    dbo.collection(col).updateMany(where, updatestr, (err, rest) => {
+        callback(err,rest)
+    })
+}
+
 var deleteCol=(col, where, callback) => {
     if(where._id!=null)
         where._id=ObjectId(where._id)   
@@ -343,6 +354,7 @@ module.exports = {
     updateCol,
     deleteCol,
     findCol,
+    pushCol,
     //removed later
     task,
     node,

@@ -4,46 +4,6 @@ var nodeApi = require('./nodeApi')
 var jwt = require('jwt-simple')
 var fs = require('fs')
 
-const OPER_STATUS = {
-  new: 'new',
-  wrong: 'wrong',
-  waiting: 'waiting',
-  run: 'run',
-  pause: 'pause',
-  complete: 'complete',
-  delete: 'delete'
-}
-const TASK_STATUS = {
-  new: 'new',
-  run: 'run',
-  wrong: 'wrong',
-  pause: 'pause',
-  complete: 'complete',
-  delete: 'delete'
-}
-const TASK_STAGE = {
-  waiting: 'waiting',
-  runZmap: 'runZmap',
-  runScan: 'runScan',
-  complete: 'complete'
-}
-const SCAN_STATUS = {
-  wrong: 'wrong',
-  waiting: 'waiting',
-  running: 'running',
-  complete: 'complete',
-}
-const ZMAP_STATUS = {
-  wrong: 'wrong',
-  waiting: 'waiting',
-  running: 'running',
-  complete: 'complete',
-}
-const SYNC_STATUS = {
-  ok: 'ok',
-  not_received: 'not received',
-  not_sync: 'not sync'
-}
 
 const myMiddleWare = {
   verifyToken: (req, res, next) => {
@@ -225,7 +185,7 @@ const keeper = {
           //info need not send to node
           node: usableNode.node,
           needToSync: false,
-          received: false,
+          received: false,          
           taskId: task._id.toString(),
 
           //task basic info          
@@ -237,6 +197,7 @@ const keeper = {
           goWrong: false,
           progress: 0,
           complete: false,
+          running:false,
 
           //sync to node
           paused: false,
@@ -324,22 +285,21 @@ const keeper = {
       //access the node to send the task
       var syncCode = await new Promise((resolve, reject) => {
         //delete the property not needed by node
-        delete task.node
-        delete task.needToSync
-        delete task.received
-        delete task.syncSucess
-        delete task.taskId
-        delete task.deleted
-        task.taskId = task._id
-        delete task._id
-        nodeApi.zmapTask.add(t_node.url, t_node.token, task, (code, body) => {
+        let newNodeTask={
+          taskId:task._id.toString(),
+          port:task.port,
+          ipRange:task.ipRange,
+          paused:false
+
+        }
+        nodeApi.zmapTask.add(t_node.url, t_node.token, newNodeTask, (code, body) => {
           resolve(code)
         })
       });
       // if return code is right, update the nodetask
-      if (syncCode == 200)
+      if (syncCode == 200)        
         await new Promise((resolve, reject) => {
-          dbo.updateCol('zmapNodeTask', { _id: task.taskId.toString() }, { received: true, needToSync: false }, (err, rest) => { resolve(rest) })
+          dbo.updateCol('zmapNodeTask', { _id: task._id}, { received: true, needToSync: false }, (err, rest) => { resolve(rest) })
 
         })
     }
@@ -372,9 +332,9 @@ const keeper = {
     }
   },
   zmapSyncProgress: async () => {
-    //get not paused and not complete zmaptask
+    //get not paused and not complete and not go wrong zmaptask
     var syncProgressTasks = await new Promise((resolve, reject) => {
-      dbo.findCol('zmapNodeTask', { complete: false, paused: false }, (err, result) => {
+      dbo.findCol('zmapNodeTask', { complete: false, paused: false,goWrong:false }, (err, result) => {
         resolve(result)
       })
     });
@@ -401,35 +361,21 @@ const keeper = {
         running,
         latestResult,
       } = syncResult
+      //update the sever side nodetask
+      dbo.updateCol('zmapNodeTask',{_id:task._id},{progress,goWrong,complete,running},(err, result) => {})
+      //record the results
+      for (var r of latestResult)
+      dbo.pushCol('task',{_id:task.taskId},{zmapResult:r})
     }
+  },
+  zmapCollect: async ()=>{
+    //if complete, set node continue=true,delete the completed
+    //total progress: the number of ip sent - (batch -progress) of each node
+    //if progress=total, the task is complete
+
   }
 
 
-  // var nodes = await new Promise((resolve, reject) => {
-  //   dbo.node.get({}, (err, rest) => {
-  //     resolve(rest)
-  //   })
-  // })
-  // //依次访问节点服务器
-  // for (var anode of nodes) {
-  //   let { url, token } = anode
-  //   nodeApi.zmapTask.syncTask(url, token, (code, body) => {
-  //     //待做，如果code不为200，设置该节点不在线
-  //     if (code == 200) {
-  //       //将取回的nodetask数据更新到数据库
-  //       //todo update node db of synctime
-  //       for (var nodeTask of body) {
-
-  //         let { nodeTaskId, keyLog, goWrong, zmapProgress, zmapResult, zmapComplete, scanProgress, scanComplete } = nodeTask
-  //         dbo.nodeTask.update_by_nodeTaskId(nodeTaskId, { keyLog, goWrong, zmapProgress, zmapComplete, scanProgress, scanComplete, syncTime: Date.now() }, (err, rest) => { })
-  //         for (var item of zmapResult) {
-  //           dbo.nodeTask.push_by_nodeTaskId(nodeTaskId, { zmapResult: item }, (err, rest) => { })
-  //         }
-  //       }
-  //     }
-  //   })
-  // }
-},
 }
 const task = {
   add: (req, res) => {
@@ -472,9 +418,13 @@ const task = {
         plugin,
         scanTotal: -1,
         scanProgress: 0,
-        scanComplete: false
+        scanComplete: false,
+
+        //results
+        zmapResult:[],
+        scanResult:[],
       }
-      dbo.task.add(newTaskToAdd, (err, rest) => { })
+      dbo.insertCol('task',newTaskToAdd, (err, rest) => { })
     }
     res.json('ok')
   },
@@ -490,7 +440,7 @@ const task = {
     dbo.updateCol('zmapNodeTask', { taskId }, { deleted: true }, (err, result) => { })
     dbo.updateCol('scanNodeTask', { taskId }, { deleted: true }, (err, result) => { })
     //delete the task it self
-    dbo.task.del(taskId, (err, rest) => { err ? res.sendStatus(500) : res.json('ok') })
+    dbo.deleteCol('task',{_id:taskId},(err, rest) =>{ err ? res.sendStatus(500) : res.json('ok') })
   },
 
   start: async (req, res) => {
@@ -541,7 +491,7 @@ const task = {
       dbo.updateCol('scanNodeTask', { taskId, complete: false }, { paused: true, needToSync: true }, (err, result) => { resolve(err) })
     });
     //set the task itself as paused
-    dbo.task.update_by_taskId(taskId, { paused: true }, (err, rest) => {
+    dbo.updateCol('task',{_id:taskId}, { paused: true }, (err, rest) => {
       err ? res.sendStatus(500) : res.json('ok')
     })
   },
@@ -557,7 +507,7 @@ const task = {
       dbo.updateCol('scanNodeTask', { taskId, complete: false }, { paused: false, needToSync: true }, (err, result) => { resolve(err) })
     });
     //set the task itself as not paused
-    dbo.task.update_by_taskId(taskId, { paused: false }, (err, rest) => {
+    dbo.updateCol('task',{_id:taskId}, { paused: false }, (err, rest) => {
       err ? res.sendStatus(500) : res.json('ok')
     })
   },

@@ -25,7 +25,7 @@ var postJson = (url, token, param, callback) => {
 
 var zmapTask = {
     add: (url_base, token, task, callback) => {
-        var param = { task }
+        var param = task
         postJson(url_base + '/zmaptask/add', token, param, callback)
     },
     syncCommand: (url_base, token, taskid, paused, callback) => {
