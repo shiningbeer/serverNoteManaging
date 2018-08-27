@@ -353,7 +353,8 @@ const keeper = {
           code == 200 ? resolve(body) : resolve(null)
         })
       })
-      console.log(syncResult)
+      if(syncResult==null)
+        continue
       let {
         goWrong,
         progress,
@@ -365,13 +366,25 @@ const keeper = {
       dbo.updateCol('zmapNodeTask',{_id:task._id},{progress,goWrong,complete,running},(err, result) => {})
       //record the results
       for (var r of latestResult)
-      dbo.pushCol('task',{_id:task.taskId},{zmapResult:r})
+        dbo.pushCol('task',{_id:task.taskId},{zmapResult:r},(err, result) => {})
     }
   },
   zmapCollect: async ()=>{
+    var zmaptasks = await new Promise((resolve, reject) => {
+      dbo.task.get({ started: true, complete: false, paused: false }, (err, result) => {
+        resolve(result)
+      })
+    })
     //if complete, set node continue=true,delete the completed
     //total progress: the number of ip sent - (batch -progress) of each node
     //if progress=total, the task is complete
+    for (var task of zmaptasks){
+      var sentCount = await new Promise((resolve, reject) => {
+        dbo.findCol('ipRange' + task._id, { sent: false }, 10, (err, result) => {
+          resolve(result)
+        })
+      });
+    }
 
   }
 
