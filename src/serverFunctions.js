@@ -401,7 +401,6 @@ const task = {
         started: false,
         createdAt: Date.now(),
         user: req.tokenContainedInfo.user,
-        brandNew: true,
         goWrong: false,
         paused: true,
         nodes: [],
