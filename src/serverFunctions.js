@@ -419,10 +419,10 @@ const task = {
             delete r._id
             dbo.insert(task.taskId+'--result',r,(err,rest)=>{})
             client.index({
-              index: task.taskName+task.taskId, //相当于database
+              index: task.taskName, //相当于database
               type:'data',  //相当于table
               body: {
-                ip:r.IP,
+                ip:r.ip,
                 data:r.data
               }
             }, (error, response)=>{
