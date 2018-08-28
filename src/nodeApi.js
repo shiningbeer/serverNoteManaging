@@ -8,10 +8,14 @@ var fs = require('fs');
 //     }
 //     postJson(api.auth,param, callback)
 // }
-
+let accessingUrl={}
 var postJson = (url, token, param, callback) => {
+    if(accessingUrl[url]==true)
+        return
+    accessingUrl[url]==true
     request.post({
         url: url,
+        timeout:2000,
         json: true,
         headers: {
             "content-type": "application/json",
@@ -19,6 +23,24 @@ var postJson = (url, token, param, callback) => {
         },
         body: param
     }, (error, response, body) => {
+        accessingUrl[url]==false
+        error ? callback(600, error) : callback(response.statusCode, body)
+    })
+}
+var postJsonWithTimeout = (url, token, param, timeout,callback) => {
+    if(accessingUrl[url]==true)
+        return
+    request.post({
+        url: url,
+        timeout:timeout,
+        json: true,
+        headers: {
+            "content-type": "application/json",
+            'token': token
+        },
+        body: param
+    }, (error, response, body) => {
+        accessingUrl[url]==false
         error ? callback(600, error) : callback(response.statusCode, body)
     })
 }
@@ -36,9 +58,9 @@ var zmapTask = {
         var param = { taskId: id }
         postJson(url_base + '/zmaptask/delete', token, param, callback)
     },
-    syncProgress: (url_base, token, id, callback) => {
+    syncProgress: (url_base, token, id, timeout,callback) => {
         var param = { taskId: id }
-        postJson(url_base + '/zmaptask/syncProgress', token, param, callback)
+        postJsonWithTimeout(url_base + '/zmaptask/syncProgress', token, param, timeout,callback)
     },
 
 

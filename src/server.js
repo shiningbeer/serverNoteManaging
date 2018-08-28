@@ -77,13 +77,9 @@ var server = app.listen(1978, function () {
   })
   // 定时更新任务
   setInterval(() => {
-    // task.syncedToNode()
-    // task.syncFromNode() 
-    // task.collectNodeTasks()
-    keeper.zmapTaskDistribute()
-    keeper.zmapToNodeSync()
+    keeper.zmapToNodeSync()    
     keeper.zmapSyncProgress()
-    keeper.zmapCollect()
+    keeper.zmapTaskDistribute()
   }, 5000);
 
 })
