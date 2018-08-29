@@ -9,6 +9,7 @@ var fs = require('fs');
 //     postJson(api.auth,param, callback)
 // }
 let accessingUrl={}
+let failTimeOfUrl={}
 var postJson = (url, token, param, callback) => {
     if(accessingUrl[url]==true)
         return

@@ -80,7 +80,7 @@ var server = app.listen(1978, function () {
     keeper.zmapToNodeSync()    
     keeper.zmapSyncProgress()
     keeper.zmapTaskDistribute()
-  }, 5000);
+  }, 2500);
 
 })
 

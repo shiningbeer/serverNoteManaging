@@ -4,12 +4,13 @@ var nodeApi = require('./nodeApi')
 var jwt = require('jwt-simple')
 var fs = require('fs')
 
-
+let brokenNodes=[]
+let nodeConnectFailTime={}
 const myMiddleWare = {
   verifyToken: (req, res, next) => {
     // the myMiddleWare always run twice out of no reason, one of these not taking my data, so i omiss one of these.
     if (req.get('access-control-request-method') == null) {
-      console.log(req.originalUrl + ' has been accessed by %s at %s', req.ip, moment(Date.now()).format('YYYY-MM-DD HH:mm'))
+      // console.log(req.originalUrl + ' has been accessed by %s at %s', req.ip, moment(Date.now()).format('YYYY-MM-DD HH:mm'))
       if (req.originalUrl != '/user/gettoken') {
         var token = req.get('token')
         let tokenContainedInfo
@@ -111,20 +112,36 @@ const keeper = {
       const {nodes}=task
       //for each of its node
       for (var node of nodes){
-        //have uncomplete ip?
+        //if broken,next
+        if(brokenNodes.includes(node._id.toString()))
+          continue
+        //have any uncomplete ip?
         var re = await new Promise((resolve, reject) => {
           dbo.findoneCol('progress--' + task._id.toString(), { node:node._id,complete:false }, (err, result) => {
             resolve(result)
           })
         });
+        var completeCount = await new Promise((resolve, reject) => {
+          dbo.getCount('progress--'+task._id.toString(),{complete:true},(err, result) => {
+            resolve(result)
+          })
+        });
+        var totalcount = await new Promise((resolve, reject) => {
+          dbo.getCount('progress--' + task._id.toString(), { }, (err, result) => {
+            resolve(result)
+          })
+        });
+
         // null means new nodetask should be distributed
-        if(re==null){
+        if(re==null&&completeCount!=totalcount){
           //get a batch of undistributed iprange
           var iprList = await new Promise((resolve, reject) => {
             dbo.findlimitCol('progress--' + task._id.toString(), { node: null }, 10, (err, result) => {
               resolve(result)
             })
           });
+          if(iprList.length==0)
+            continue
           //distribute
           let zmapRange = []
           let zmapRangeId=[]
@@ -180,17 +197,17 @@ const keeper = {
     });
 
     for (var nodetask of deletedNodeTasks) {
-      
+      const {_id, nodeId}=nodetask
       // if not received, delete directly
       if (!nodetask.received) {
         await new Promise((resolve, reject) => {
-          dbo.deleteCol('zmapNodeTask', { _id: nodetask._id}, (err, result) => { resolve(result) })
+          dbo.deleteCol('zmapNodeTask', { _id}, (err, result) => { resolve(result) })
         })
         continue
       }
       //take out the node
       var t_node = await new Promise((resolve, reject) => {
-        dbo.findoneCol('node', { _id: nodetask.nodeId }, (err, result) => {
+        dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
           resolve(result)
         })
       })
@@ -198,71 +215,106 @@ const keeper = {
       //if the node is missing, just delete the task
       if (t_node == null) {
         await new Promise((resolve, reject) => {
-          dbo.deleteCol('zmapNodeTask', { _id: nodetask._id }, (err, result) => { resolve(result) })
+          dbo.deleteCol('zmapNodeTask', { _id: _id }, (err, result) => { resolve(result) })
 
         })
         continue
       }
+      const t_node_id=t_node._id
+      if(brokenNodes.includes(t_node_id.toString()))
+        continue
       //access the node to delete the node side task
-      nodeApi.zmapTask.delete(t_node.url, t_node.token, nodetask._id, (code, body) => {
+      nodeApi.zmapTask.delete(t_node.url, t_node.token, _id, (code, body) => {
         // if return code is right, update the nodetask
         if (code == 200)        
-          dbo.deleteCol('zmapNodeTask', { _id: nodetask._id }, (err, result) => {})
+          dbo.deleteCol('zmapNodeTask', { _id: _id }, (err, result) => {})
       })
     }
 
     //then deal the not received
     var notReceivedNodeTasks = await new Promise((resolve, reject) => {
-      dbo.findCol('zmapNodeTask', { received: false }, (err, result) => {
+      dbo.findCol('zmapNodeTask', { received: false,deleted:false}, (err, result) => {
         resolve(result)
       })
     });
     for (var nodetask of notReceivedNodeTasks) {
       //take out the node
-      var t_node = await new Promise((resolve, reject) => {
-        dbo.findoneCol('node', { _id: nodetask.nodeId }, (err, result) => {
+      
+      const {_id,nodeId,port,ipRange,ipRangeId,taskId}=nodetask
+      const t_node = await new Promise((resolve, reject) => {
+        dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
           resolve(result)
         })
       })
       //if the node is missing, omit
       if (t_node == null)
         continue
+      const {url,token,name,}=t_node
+      const t_node_id=t_node._id
+      if(brokenNodes.includes(t_node_id.toString()))
+        continue
       //access the node to send the task
       let newNodeTask={
-        taskId:nodetask._id.toString(),
-        port:nodetask.port,
-        ipRange:nodetask.ipRange,
+        taskId:_id.toString(),
+        port,
+        ipRange,
         paused:false
 
       }
-      nodeApi.zmapTask.add(t_node.url, t_node.token, newNodeTask, (code, body) => {
+      nodeApi.zmapTask.add(url, token, newNodeTask, (code, body) => {
         // if return code is right, update the nodetask
-        if (code == 200)        
-          dbo.updateCol('zmapNodeTask', { _id: nodetask._id}, { received: true, needToSync: false }, (err, rest) => {})
+        if (code == 200){
+          console.log(name+'--node:add task succeed!')
+          dbo.updateCol('zmapNodeTask', { _id}, { received: true, needToSync: false }, (err, rest) => {})
+        }
+        else{
+          console.log(name+'--node:add task fail!')
+          if (nodeConnectFailTime[t_node_id]==null)
+            nodeConnectFailTime[t_node_id]=1
+          else
+            nodeConnectFailTime[t_node_id]=nodeConnectFailTime[t_node_id]+1
+          if(nodeConnectFailTime[t_node_id]==2){
+            console.log(name+"--node: is broken")
+            brokenNodes.push(t_node_id.toString())
+            //put back its ip
+            for(var ip_id of ipRangeId){
+              dbo.updateCol('progress--'+taskId,{_id:ip_id},{node:null},(err, rest) => {})
+            }
+             //set the task deleted
+             dbo.updateCol('zmapNodeTask', { taskId }, { deleted: true }, (err, result) => { })
+          }
+            
+        }
       })
       
     }
     //last to deal with the needToSync
     var needToSyncNodeTasks = await new Promise((resolve, reject) => {
-      dbo.findCol('zmapNodeTask', { needToSync: true, complete: false }, (err, result) => {
+      dbo.findCol('zmapNodeTask', { needToSync: true, complete: false,deleted:false }, (err, result) => {
         resolve(result)
       })
     });
     for (var nodetask of needToSyncNodeTasks) {
       //take out the node
-      var t_node = await new Promise((resolve, reject) => {
-        dbo.findoneCol('node', { _id: nodetask.nodeId }, (err, result) => {
+      const {_id,nodeId,paused}=nodetask
+      const t_node = await new Promise((resolve, reject) => {
+        dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
           resolve(result)
         })
       })
       //if the node is missing, omit
       if (t_node == null)
         continue
-      
-      nodeApi.zmapTask.syncCommand(t_node.url, t_node.token, nodetask._id.toString(), nodetask.paused, (code, body) => {
+      const {url,token,name}=t_node
+      nodeApi.zmapTask.syncCommand(url, token, _id.toString(), paused, (code, body) => {
         // if return code is right, update the nodetask
-        if (code == 200)        
-          dbo.updateCol('zmapNodeTask', { _id: nodetask._id }, { needToSync: false }, (err, rest) => {})
+        if (code == 200){
+          console.log(name+'--node:change task pause/resume status succeed!')
+          dbo.updateCol('zmapNodeTask', { _id: _id }, { needToSync: false }, (err, rest) => {})
+        }
+        else{
+          console.log(name+'--node:change task pause/resume status fail!')
+        }
       })
     }
   },
@@ -275,38 +327,27 @@ const keeper = {
     })    
     //for each of the task
     for (var task of zmaptasks){
-      //get its uncompleted, received and synced nodetasks
+      //get all its uncompleted nodetasks, 
       var nodetasks = await new Promise((resolve, reject) => {
-        dbo.findCol('zmapNodeTask', { received:true,needToSync:false,deleted:false}, (err, result) => {
+        dbo.findCol('zmapNodeTask', { taskId:task._id.toString(),received:true,complete:false,deleted:false}, (err, result) => {
           resolve(result)
         })
       });
-      //totalprogress should be the complete count the iprange of the progress table, plus sum of the progress of ongoing nodetasks
       
-      //for each, acess the node to sycn
-      let totalProgress=0
+      let totalProgress=0//totalprogress should be the complete count the iprange of the progress table, plus sum of the progress of ongoing nodetasks
       let totalGoWrong=false
       for (var nodetask of nodetasks) {
-        //if it is complete
-        if(nodetask.complete&&!completeRecorded){
-          for(var ip_id of nodetask.ipRangeId){            
-            await new Promise((resolve, reject) => {
-              dbo.updateCol('progress--'+task._id.toString(),{_id:ip_id},{complete:true},(err,rest)=>{
-                resolve(err)
-              })})
-          }
-          await new Promise((resolve, reject) => {
-            dbo.updateCol('zmapNodeTask',{_id:nodetask._id},{completeRecorded:true},(err,rest)=>{
-              resolve(err)
-            })})
-          continue
-          //写到这里
-          
-        }
 
+        //converge the nodetasks progress and status to the task
+        const {_id,progress, ipRangeId,goWrong,nodeId,taskId}=nodetask
+        totalProgress=totalProgress+progress
+        if(goWrong)
+          totalGoWrong=true
+        
+        //then access the nodes to sync progress
         //take out the node
-        var t_node = await new Promise((resolve, reject) => {
-          dbo.findoneCol('node', { _id: nodetask.nodeId }, (err, result) => {
+        const t_node = await new Promise((resolve, reject) => {
+          dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
             resolve(result)
           })
         })
@@ -314,9 +355,11 @@ const keeper = {
         //if the node is missing, omit
         if (t_node == null)
           continue
+        const {url,token,name}=t_node
         //get the sync info, set the timeout longer as it may take time
-        nodeApi.zmapTask.syncProgress(t_node.url, t_node.token, nodetask._id.toString(), 120000, (code, body) => {
+        nodeApi.zmapTask.syncProgress(url, token, _id.toString(), 120000, async (code, body) => {
           if (code == 200){
+            console.log(name+'--node:acquire task update data succeed!')
             let {
               goWrong,
               progress,
@@ -324,45 +367,55 @@ const keeper = {
               running,
               latestResult,
             } = body
-            console.log(body)
+            if(complete){
+              for(var ip_id of ipRangeId){            
+                await new Promise((resolve, reject) => {
+                  dbo.updateCol('progress--'+task._id.toString(),{_id:ip_id},{complete:true},(err,rest)=>{
+                    resolve(err)
+                  })})
+              }
+            }
             //update the sever side nodetask
-            dbo.updateCol('zmapNodeTask',{_id:nodetask._id},{progress,goWrong,complete,running},(err, result) => {})
+            dbo.updateCol('zmapNodeTask',{_id:_id},{progress,goWrong,complete,running},(err, result) => {})
                     //record the results
             for (var r of latestResult)
-              dbo.pushCol('task',{_id:nodetask.taskId},{zmapResult:r},(err, result) => {})
+              dbo.pushCol('task',{_id:taskId},{zmapResult:r},(err, result) => {})
           }
           else{
-            //this task's result may not be completely transfered to the server
-            //this single nodetask should be marked and cannot be deleted, until the results is ensured transfered.
+              console.log(name+'--node:acquire task update data fail!')
+              if (nodeConnectFailTime[t_node_id]==null)
+                nodeConnectFailTime[t_node_id]=1
+              else
+                nodeConnectFailTime[t_node_id]=nodeConnectFailTime[t_node_id]+1
+              if(nodeConnectFailTime[t_node_id]==2){
+                console.log(name+"--node: is broken")
+                brokenNodes.push(t_node_id.toString())
+                //put back its ip
+                for(var ip_id of ipRangeId){
+                  dbo.updateCol('progress--'+taskId,{_id:ip_id},{node:null},(err, rest) => {})                  
+                }
+                //set the task deleted
+                dbo.updateCol('zmapNodeTask', { taskId }, { deleted: true }, (err, result) => { })
+              }            
           }            
         })       
       }
-      //sleep 1 second for waiting progress result be taken back, if the progress still not updated ,no problem ,wait for next time
       
-        //collect info to update the main task progress
-        
-
-      // for(var nodetask of nodetasks){
-      //   const {progress, complete,goWrong}=nodetask
-      //   console.log(progress, complete,goWrong)
-      //   totalProgress=totalProgress+progress
-      //   if(goWrong)
-      //     totalGoWrong=true
-      //   //if complete, the nodetask's ips of the progress table should be marked as complete
-      //   if(complete){
-          
-
-      //   } 
-      // }
-      //get complete count of the progress table
+      //after converging the nodetasks, get complete count of the progress table
       var completeCount = await new Promise((resolve, reject) => {
         dbo.getCount('progress--'+task._id.toString(),{complete:true},(err, result) => {
           resolve(result)
         })
       });
-      //if the complete count of the progress table = ipTotal, the task is complete
-      if(completeCount==task.ipTotal)
-        dbo.updateCol('task',{_id:task._id},{zmapComplete:true,zmapProgress:task.ipTotal},(err,rest)=>{})
+      var totalcount = await new Promise((resolve, reject) => {
+        dbo.getCount('progress--' + task._id.toString(), { }, (err, result) => {
+          resolve(result)
+        })
+      });
+      
+      //the two equals mean the task is complete
+      if(completeCount==totalcount)
+        dbo.updateCol('task',{_id:task._id},{zmapComplete:true,zmapProgress:totalcount},(err,rest)=>{})
       else{
         totalProgress=totalProgress+completeCount
         dbo.updateCol('task',{_id:task._id},{zmapProgress:totalProgress,goWrong:totalGoWrong},(err,rest)=>{})
@@ -424,11 +477,10 @@ const task = {
     var taskId = req.body.taskId
     if (taskId == null)
       return res.sendStatus(415)
-    console.log('begin delete')
     //delete progress table created when start the task
     dbo.dropCol('progress--' + taskId, (err, result) => { })
     //delete the sub tasks produced by this task
-    dbo.updateCol('zmapNodeTask', { taskId }, { deleted: true }, (err, result) => {  console.log('set deleted')})
+    dbo.updateCol('zmapNodeTask', { taskId }, { deleted: true }, (err, result) => { })
     dbo.updateCol('scanNodeTask', { taskId }, { deleted: true }, (err, result) => { })
     //delete the task it self
     dbo.deleteCol('task',{_id:taskId},(err, rest) =>{ err ? res.sendStatus(500) : res.json('ok') })
@@ -440,7 +492,6 @@ const task = {
     if (task == null || nodes == null)
       return res.sendStatus(415)
     var { targetList, plugin } = task
-    console.log(nodes)
     //merge all the ip of targets
     let allIpRange = []
     for (var target of targetList) {
@@ -458,6 +509,13 @@ const task = {
         dbo.insertCol('progress--' + task._id.toString(), ipR, (err, rest) => { resolve(rest) })
       })
     }
+    let newtarget={
+      _id:task._id,
+      port:task.port,
+      ip:[],
+      complete:false,
+    }
+    dbo.insertCol('autoGenScanTarget',)
     //add the nodes
     for(var node of nodes)
       dbo.pushCol('task',{_id:task._id},{nodes:node},(err,rest)=>{})
