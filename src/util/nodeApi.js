@@ -1,15 +1,28 @@
 var request = require('request');
-var fs = require('fs');
+var log4js=require('log4js')
+var logger=log4js.getLogger()
 
-// var getToken=(user,pw, callback)=>{
-//     var param = {
-//         username:user,
-//         password:pw,
-//     }
-//     postJson(api.auth,param, callback)
-// }
+var zmapTask = {
+    add: (url_base, token, task, callback) => {
+        var param = task
+        postJson(url_base + '/zmaptask/add', token, param, callback)
+    },
+    syncCommand: (url_base, token, taskid, paused, callback) => {
+        var param = { taskId: taskid, paused: paused }
+        postJson(url_base + '/zmaptask/syncCommand', token, param, callback)
+    },
+    delete: (url_base, token, id, callback) => {
+        var param = { taskId: id }
+        postJson(url_base + '/zmaptask/delete', token, param, callback)
+    },
+    syncProgress: (url_base, token, id, timeout,callback) => {
+        var param = { taskId: id }
+        postJsonWithTimeout(url_base + '/zmaptask/syncProgress', token, param, timeout,callback)
+    },
+}
+
+
 let accessingUrl={}
-let failTimeOfUrl={}
 var postJson = (url, token, param, callback) => {
     if(accessingUrl[url]==true)
         return

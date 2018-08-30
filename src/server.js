@@ -1,8 +1,15 @@
 var express = require('express')
 var bodypaser = require('body-parser')
 var multer = require('multer')
-const { myMiddleWare, user, task, node, target, plugin, keeper, connectDB } = require('./serverFunctions')
+const {myMiddleWare}=require('./modules/middleware')
+const { user} = require('./modules/user')
+const { task} = require('./modules/task')
+const { node} = require('./modules/node')
+const { target} = require('./modules/target')
+const { plugin} = require('./modules/plugin')
+const {connect}=require('./dbo/dbo')
 
+var {logger}=require('./util/mylogger')
 
 
 var app = express()
@@ -12,14 +19,7 @@ app.use(bodypaser.urlencoded({
 app.use(bodypaser.json({ limit: '50mb' }));
 app.use(bodypaser.urlencoded({ limit: '50mb', extended: true }));
 app.use(myMiddleWare.verifyToken)
-app.all('*', function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", '*');
-  res.header("Access-Control-Allow-Headers", "token,content-type,productId,X-Requested-With");
-  res.header("Access-Control-Allow-Methods", "PUT,POST,GET,DELETE,OPTIONS");
-  res.header("X-Powered-By", ' 3.2.1')
-  res.header("Content-Type", "application/json;charset=utf-8");
-  next();
-});
+app.all('*',myMiddleWare.header );
 
 var upload = multer({
   dest: plugin.uploadDir
@@ -72,15 +72,10 @@ app.post('/plugin/get', plugin.get)
 var server = app.listen(1978, function () {
   // var host = server.address().address
   // var port = server.address().port
-  connectDB((err) => {
-    err ? console.log('db connection fail!') : console.log('server starts!')
+  connect("mongodb://localhost:27017", 'centDev2', (err) => {
+    err ? logger.info('db connection fail!') : logger.info('server starts!')
   })
-  // 定时更新任务
-  setInterval(() => {
-    keeper.zmapToNodeSync()    
-    keeper.zmapSyncProgress()
-    keeper.zmapTaskDistribute()
-  }, 2500);
+
 
 })
 
