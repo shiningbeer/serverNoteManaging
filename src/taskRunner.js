@@ -1,4 +1,4 @@
-var {connect}= require('./dbo/dbo')
+var {connect}= require('./util/dbo')
 var {logger}=require('./util/mylogger')
 var {runZmapTask}=require('./tasks/zmap')
 

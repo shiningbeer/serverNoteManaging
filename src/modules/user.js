@@ -1,5 +1,6 @@
-var dbo = require('../dbo/dbo')
+var dbo = require('../util/dbo')
 var {logger}=require('../util/mylogger')
+var jwt=require('jwt-simple')
 const user = {
     add: (req, res) => {
       var newUser = req.body.newUser
@@ -12,7 +13,7 @@ const user = {
         lastLoginIp: '21.34.56.78'
       }
       //todo: verify validity of newUser
-      dbo.user.add(newUserToAdd, (err, rest) => {
+      dbo.insertCol('user',newUserToAdd, (err, rest) => {
         err ? res.sendStatus(500) : res.json('ok')
       })
     },
@@ -20,7 +21,7 @@ const user = {
       var id = req.body.userId
       if (id == null)
         return res.sendStatus(415)
-      dbo.user.del(id, (err, rest) => {
+      dbo.deleteCol('user',{_id:id}, (err, rest) => {
         err ? res.sendStatus(500) : res.json('ok')
       })
     },
@@ -29,7 +30,7 @@ const user = {
       var pw = req.body.pw
       if (id == null || pw == null)
         return res.sendStatus(415)
-      dbo.user.update(id, { password: pw }, (err, rest) => {
+      dbo.updateCol('user',{_id:id}, { password: pw }, (err, rest) => {
         err ? res.sendStatus(500) : res.sendStatus(200)
       })
     },
@@ -38,7 +39,7 @@ const user = {
       var pw = req.body.password
       if (user == null || pw == null)
         return res.sendStatus(415)
-      dbo.user.get({ name: user, password: pw }, (err, result) => {
+      dbo.findCol('user',{ name: user, password: pw }, (err, result) => {
         if (err)
           res.sendStatus(500)
         else {
@@ -62,7 +63,7 @@ const user = {
       var condition = req.body.condition
       if (condition == null)
         condition = {}
-      dbo.user.get(condition, (err, result) => {
+      dbo.findCol('user',condition, (err, result) => {
         err ? res.sendStatus(500) : res.json(result)
       })
     },

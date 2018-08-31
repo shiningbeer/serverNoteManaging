@@ -1,4 +1,4 @@
-var dbo = require('../dbo/dbo')
+var dbo = require('../util/dbo')
 var {logger}=require('../util/mylogger')
 const task = {
     add: (req, res) => {
@@ -72,7 +72,7 @@ const task = {
       let allIpRange = []
       for (var target of targetList) {
         var iprange = await new Promise((resolve, reject) => {
-          dbo.target.getOne(target._id, (err, result) => {
+          dbo.findoneCol('target',{_id:target._id}, (err, result) => {
             resolve(result)
           })
         });
@@ -137,7 +137,7 @@ const task = {
       var condition = req.body
       if (condition == null)
         condition = {}
-      dbo.task.get(condition, (err, result) => {
+      dbo.findCol('task',condition, (err, result) => {
         err ? res.sendStatus(500) : res.json(result)
       })
     },
@@ -145,18 +145,11 @@ const task = {
       var id = req.body.id
       if (id == null)
         return res.sendStatus(415)
-      dbo.task.getOne(id, (err, result) => {
+      dbo.findoneCol('task',{_id:id}, (err, result) => {
         err ? res.sendStatus(500) : res.json(result)
       })
     },
-    getNodeTasks: (req, res) => {
-      var id = req.body.id
-      if (id == null)
-        return res.sendStatus(415)
-      dbo.nodeTask.get({ taskId: id }, (err, result) => {
-        err ? res.sendStatus(500) : res.json(result)
-      })
-    },
+    
     nodeTaskResult: (req, res) => {
       // var { nodeTaskId, nodeId, skip, limit } = req.body
       // if (nodeTaskId == null || skip == null || limit == null || nodeId == null)
@@ -187,38 +180,6 @@ const task = {
   
     },
   
-    collectNodeTasks: async () => {
-      //get all the task that zmap is not complete
-      var zmapUnfinishedTasks = await new Promise((resolve, reject) => {
-        dbo.task.get({ zmapComplete: false }, (err, rest) => {
-          resolve(rest)
-        })
-      })
-      for (var task of zmapUnfinishedTasks) {
-        //get all its node tasks
-        let sum_progress = 0
-        dbo.nodeTask.get({ taskId: task._id.toString() }, (err, rest) => {
-          let flag_complete = true//判断是否所有子任务都完成
-          let flag_err = false//判断是否有出错的子任务
-          for (var nodetask of rest) {
-            let { goWrong, syncTime, zmapComplete, zmapProgress } = nodetask
-            if (!zmapComplete)
-              flag_complete = false
-            if (goWrong) {
-              flag_err = true
-            }
-            sum_progress = sum_progress + zmapProgress
-          }
-          dbo.task.update_by_taskId(task._id, { zmapComplete: flag_complete, goWrong: flag_err, zmapProgress: sum_progress }, (err, rest) => { })
-          if (flag_complete) {
-            //get all the zmapResult from the nodeTasks
-            //restore it to db
-            //split it to the number of nodetasks
-            //give them to each nodetask, and set the start
-          }
-        })
-      }
-    }
   }
   module.exports={
     task,

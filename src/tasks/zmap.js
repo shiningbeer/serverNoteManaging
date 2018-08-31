@@ -1,5 +1,5 @@
 
-var dbo = require('../dbo/dbo')
+var dbo = require('../util/dbo')
 var nodeApi = require('../util/nodeApi')
 var {logger}=require('../util/mylogger')
 let brokenNodes=[]
@@ -189,7 +189,7 @@ const  distribute= async () => {
           await new Promise((resolve, reject) => {
             dbo.deleteCol('zmapNodeTask', { _id}, (err, result) => { resolve(result) })
           })
-          logger.warn('node %s: not received nodetask(%s) of task(%s) had been deleted directly!',name,_id,taskId)
+          logger.warn('node--%s: not received nodetask(%s) of task(%s) had been deleted directly!',name,_id,taskId)
           continue
         }
         if(brokenNodes.includes(t_node_id.toString()))
@@ -198,11 +198,11 @@ const  distribute= async () => {
         nodeApi.zmapTask.delete(t_node.url, t_node.token, _id, (code, body)=> {
           // if return code is right, update the nodetask
           if (code == 200){
-            logger.info('node--s:delete nodetask(%s) of task(%s) successfully!',name,_id,taskId)
+            logger.info('node--%s:delete nodetask(%s) of task(%s) successfully!',name,_id,taskId)
             dbo.deleteCol('zmapNodeTask', { _id: _id }, (err, result) => {})
           }
           else{
-            logger.error('node--s:Failed to delete nodetask(%s) of task(%s) !',name,_id,taskId)
+            logger.error('node--%s:Failed to delete nodetask(%s) of task(%s) !',name,_id,taskId)
           }
         })
       }
@@ -275,6 +275,7 @@ const  distribute= async () => {
           if (t_node == null)
             continue
           const {url,token,name}=t_node
+          const t_node_id=t_node._id
           //get the sync info, set the timeout longer as it may take time
           nodeApi.zmapTask.syncProgress(url, token, _id.toString(), 120000, async (code, body) => {
             if (code == 200){
@@ -291,7 +292,7 @@ const  distribute= async () => {
               if(complete){
                 for(var ip_id of ipRangeId){            
                   await new Promise((resolve, reject) => {
-                    dbo.updateCol('progress--'+task._id.toString(),{_id:ip_id},{complete:true},(err,rest)=>{
+                    dbo.updateCol('progress--'+taskId.toString(),{_id:ip_id},{complete:true},(err,rest)=>{
                       resolve(err)
                     })})
                 }
@@ -349,17 +350,11 @@ const  distribute= async () => {
 
         for (var nodetask of nodetasks) {
 
-          const {progress,goWrong}=nodetask
+          const {progress,goWrong,taskId}=nodetask
           totalProgress=totalProgress+progress
           if(goWrong)
             totalGoWrong=true
         }
-
-
-
-
-
-
       //after converging the nodetasks, get complete count of the progress table
       var completeCount = await new Promise((resolve, reject) => {
         dbo.getCount('progress--'+task._id.toString(),{complete:true},(err, result) => {
@@ -391,7 +386,7 @@ const runZmapTask=()=>{
   setInterval(() => {
       distribute()
       sendToNode()
-    // deleteMarked()
+    deleteMarked()
     syncProgressFromNode()
     syncProgressToMainTask()
   }, 2500);

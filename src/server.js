@@ -7,7 +7,7 @@ const { task} = require('./modules/task')
 const { node} = require('./modules/node')
 const { target} = require('./modules/target')
 const { plugin} = require('./modules/plugin')
-const {connect}=require('./dbo/dbo')
+const {connect}=require('./util/dbo')
 
 var {logger}=require('./util/mylogger')
 
@@ -43,7 +43,6 @@ app.post('/task/pause', task.pause)
 app.post('/task/resume', task.resume)
 app.post('/task/get', task.get)
 app.post('/task/getdetail', task.getDetail)
-app.post('/task/getNodeTasks', task.getNodeTasks)
 app.post('/task/nodeTaskResult', task.nodeTaskResult)
 
 

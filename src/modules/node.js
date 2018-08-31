@@ -1,4 +1,4 @@
-var dbo = require('../dbo/dbo')
+var dbo = require('../util/dbo')
 var {logger}=require('../util/mylogger')
 const node = {
     add: (req, res) => {
@@ -12,7 +12,7 @@ const node = {
       if (newNode == null)
         return res.sendStatus(415)
       //todo: verify validity of newnode
-      dbo.node.add(newNodeToAdd, (err, rest) => {
+      dbo.insertCol('node',newNodeToAdd, (err, rest) => {
         err ? res.sendStatus(500) : res.json('ok')
       })
     },
@@ -20,7 +20,7 @@ const node = {
       var id = req.body.nodeId
       if (id == null)
         return res.sendStatus(415)
-      dbo.node.del(id, (err, rest) => {
+      dbo.deleteCol('node',{_id:id}, (err, rest) => {
         err ? res.sendStatus(500) : res.json('ok')
       })
     },
@@ -29,7 +29,7 @@ const node = {
       var update = req.body.update
       if (id == null || update == null)
         return res.sendStatus(415)
-      dbo.node.update(id, update, (err, rest) => {
+      dbo.updateCol('node',{_id:id}, update, (err, rest) => {
         err ? res.sendStatus(500) : res.sendStatus(200)
       })
     },
@@ -37,7 +37,7 @@ const node = {
       var condition = req.body.condition
       if (condition == null)
         condition = {}
-      dbo.node.get(condition, (err, result) => {
+      dbo.findCol('node',condition, (err, result) => {
         res.json(result)
       })
     },

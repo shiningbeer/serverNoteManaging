@@ -1,4 +1,4 @@
-var dbo = require('../dbo/dbo')
+var dbo = require('../util/dbo')
 var {logger}=require('../util/mylogger')
 const target = {
     add: (req, res) => {
@@ -13,7 +13,7 @@ const target = {
         lines: newTarget.ipRange.length,
         createdby: req.tokenContainedInfo.user
       }
-      dbo.target.add(newTargetToAdd, (err, rest) => {
+      dbo.insertCol('target',newTargetToAdd, (err, rest) => {
         err ? res.sendStatus(500) : res.json('ok')
       })
     },
@@ -21,7 +21,7 @@ const target = {
       var id = req.body.targetId
       if (id == null)
         return res.sendStatus(415)
-      dbo.target.del(id, (err, rest) => {
+      dbo.deleteCol('target',{_id:id}, (err, rest) => {
         err ? res.sendStatus(500) : res.json('ok')
       })
     },
@@ -30,7 +30,7 @@ const target = {
       var update = req.body.update
       if (id == null || update == null)
         return res.sendStatus(415)
-      dbo.target.update(id, update, (err, rest) => {
+      dbo.updateCol('target',{_id:id}, update, (err, rest) => {
         err ? res.sendStatus(500) : res.sendStatus(200)
       })
     },
@@ -38,7 +38,7 @@ const target = {
       var condition = req.body.condition
       if (condition == null)
         condition = {}
-      dbo.target.get(condition, (err, result) => {
+      dbo.findCol('target',condition, (err, result) => {
         res.json(result)
       })
     },
