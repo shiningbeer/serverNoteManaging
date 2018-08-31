@@ -386,11 +386,12 @@ const runZmapTask=()=>{
   setInterval(() => {
       distribute()
       sendToNode()
-    deleteMarked()
-    syncProgressFromNode()
-    syncProgressToMainTask()
+      syncProgressFromNode()
+      syncProgressToMainTask()
   }, 2500);
-
+  setInterval(()=>{
+    deleteMarked()
+  },10000)
 }
 module.exports={
     runZmapTask
