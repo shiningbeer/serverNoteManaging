@@ -26,16 +26,16 @@ for(var node of nodes){
             else
               nodeConnectFailTime[_id]=nodeConnectFailTime[_id]+1
             
-            logger.warn("node--%s: failed to acess for %i time", name,nodeConnectFailTime[_id])
+            logger.warn("【pulse】to node【%s】: failed for %i time", name,nodeConnectFailTime[_id])
             if(nodeConnectFailTime[_id]==3){
-              logger.warn("node--%s: is broken, the system will not distribute or send task to it!",name)
+              logger.warn("【pulse】to node【%s】:node regarded as off-line!",name)
               brokenNodes.push(_id.toString())
               nodeConnectFailTime[_id]=0
              
             }
         }
         else{
-              logger.debug("node--%s: is online!",name)
+              logger.debug("【pulse】to node【%s】:node is online!",name)
               
         }     
     })
@@ -55,7 +55,7 @@ for(var nodeId of brokenNodes){
 
             // if (nodeConnectFailTime[node._id]==null)
             //   nodeConnectFailTime[node._id]=0
-              logger.debug("node--%s: is back on line!",name)
+              logger.debug("【pulse】to node【%s】: node back on line!",name)
             var index=brokenNodes.indexOf(_id.toString())
             // console.log(index)
            if(index!=-1)
@@ -64,7 +64,7 @@ for(var nodeId of brokenNodes){
             
         }
         else
-              logger.debug("node--%s: remain off-line!",name)
+              logger.debug("【pulse】to node【%s】: node remain off-line!",name)
 
     })
 }

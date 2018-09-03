@@ -90,7 +90,7 @@ const  distribute= async () => {
               dbo.updateCol('progress--' + task._id.toString(), { _id: ipr._id }, { node:node._id }, (err, result) => { resolve(result) })
             })
           }
-          logger.info('node--%s: had been distributed a task(%s),nodetask of %s(%s)',node.name,result.insertedId,task._id,task.name)
+          logger.info('【zmaptask】--【distribution】for node【%s】: nodetask(%s) of task【%s】(%s)',node.name,result.insertedId,task.name,task._id)
         }
       }    
 
@@ -105,6 +105,15 @@ const  distribute= async () => {
       });
     for (var nodetask of notReceivedNodeTasks) {
       const {_id,nodeId,port,ipRange,ipRangeId,taskId}=nodetask
+      const t_node = await new Promise((resolve, reject) => {
+          dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
+            resolve(result)
+          })
+        })
+        //if the node is missing, omit
+        if (t_node == null)
+          continue
+        const {url,token,name,}=t_node
       //for nodetask with broken node
       if(brokenNodes.includes(nodeId.toString()))
       {
@@ -114,22 +123,14 @@ const  distribute= async () => {
               }
               //set it deleted
                dbo.updateCol('zmapNodeTask', {_id }, { deleted: true }, (err, result) => { })
-              logger.warn("nodetask(%s) of task(%s) had been canceled!",_id.toString(),taskId)
+            logger.warn('【zmaptask】--【sent】to node【%s】: canceled nodetask(%s) of task【%s】!',name,_id,taskId)
               continue
             }
               
           
   //take out the node        
         
-        const t_node = await new Promise((resolve, reject) => {
-          dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
-            resolve(result)
-          })
-        })
-        //if the node is missing, omit
-        if (t_node == null)
-          continue
-        const {url,token,name,}=t_node
+        
         const t_node_id=t_node._id
         if(brokenNodes.includes(t_node_id.toString()))
           continue
@@ -145,7 +146,7 @@ const  distribute= async () => {
         nodeApi.zmapTask.add(url, token, newNodeTask, (code, body) => {
           // if return code is right, update the nodetask
           if (code == 200){
-            logger.info('node %s: nodetask(%s) of task(%s) had been sucessfully received!',name,_id.toString(),taskId)
+            logger.info('【zmaptask】--【send】to node 【%s】: received successful nodetask(%s) of task(%s) !',name,_id.toString(),taskId)
             dbo.updateCol('zmapNodeTask', { _id}, { received: true, needToSync: false }, (err, rest) => {})
           }
           
@@ -186,14 +187,14 @@ const  distribute= async () => {
           await new Promise((resolve, reject) => {
             dbo.deleteCol('zmapNodeTask', { _id}, (err, result) => { resolve(result) })
           })
-          logger.warn('node--%s: not received nodetask(%s) of task(%s) had been deleted directly!',name,_id,taskId)
+          logger.warn('【zmaptask】--【deleteCommand】to node【%s】: direct deleted not received nodetask(%s) of task(%s)!',name,_id,taskId)
           continue
         }
         //access the node to delete the node side task
         nodeApi.zmapTask.delete(t_node.url, t_node.token, _id, (code, body)=> {
           // if return code is right, update the nodetask
           if (code == 200){
-            logger.info('node--%s:delete nodetask(%s) of task(%s) successfully!',name,_id,taskId)
+            logger.info('【zmaptask】--【deleteCommand】for node【%s】:delete successful nodetask(%s) of task(%s)!',name,_id,taskId)
             dbo.deleteCol('zmapNodeTask', { _id: _id }, (err, result) => {})
           }
         })
@@ -229,7 +230,7 @@ const  distribute= async () => {
       nodeApi.zmapTask.syncCommand(url, token, _id.toString(), paused, (code, body) => {
         // if return code is right, update the nodetask
         if (code == 200){
-          logger.info(name+'--node:change task pause/resume status succeed!')
+          logger.info('【zmaptask】--【Pause/Resume command】 for node【%s】:change task pause/resume status succeed!',name)
           dbo.updateCol('zmapNodeTask', { _id: _id }, { needToSync: false }, (err, rest) => {})
         }
       })
@@ -256,19 +257,7 @@ const  distribute= async () => {
           //converge the nodetasks progress and status to the task
           const {_id,ipRangeId,nodeId,taskId}=nodetask
         //if node is broken, the nodetask should be canceled
-        if(brokenNodes.includes(nodeId.toString())){
-          //put back its ip
-              for(var ip_id of ipRangeId){
-                dbo.updateCol('progress--'+taskId,{_id:ip_id},{node:null},(err, rest) => {})
-              }
-              //set it deleted
-               dbo.updateCol('zmapNodeTask', {_id }, { deleted: true }, (err, result) => { })
-              logger.warn("nodetask(%s) of task(%s) had been canceled!",_id.toString(),taskId)
-          continue
-        }
-          //then access the nodes to sync progress
-          //take out the node
-          const t_node = await new Promise((resolve, reject) => {
+            const t_node = await new Promise((resolve, reject) => {
             dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
               resolve(result)
             })
@@ -279,10 +268,23 @@ const  distribute= async () => {
             continue
           const {url,token,name}=t_node
           const t_node_id=t_node._id
+        if(brokenNodes.includes(nodeId.toString())){
+          //put back its ip
+              for(var ip_id of ipRangeId){
+                dbo.updateCol('progress--'+taskId,{_id:ip_id},{node:null},(err, rest) => {})
+              }
+              //set it deleted
+               dbo.updateCol('zmapNodeTask', {_id }, { deleted: true }, (err, result) => { })
+              logger.warn("【zmaptask】--【progress】for node【%s】: canceled nodetask(%s) of task(%s)!",name,_id.toString(),taskId)
+          continue
+        }
+          //then access the nodes to sync progress
+          //take out the node
+
           //get the sync info, set the timeout longer as it may take time
           nodeApi.zmapTask.syncProgress(url, token, _id.toString(), 120000, async (code, body) => {
             if (code == 200){
-              logger.info('Received progress info of nodetask(%s) of task(%s) from node--%s!',_id,taskId,name)
+              logger.info('【zmaptask】--【progress】from node【%s】：nodetask(%s) of task(%s)!',name,_id,taskId)
               let {
                 goWrong,
                 progress,
@@ -299,7 +301,7 @@ const  distribute= async () => {
                       resolve(err)
                     })})
                 }
-              logger.warn('Complete! nodetask(%s) of task(%s) from node--%s!',_id,taskId,name)
+              logger.warn('【zmaptask】--【Complete!】of node【%s】： nodetask(%s) of task(%s)!',_id,taskId,name)
               
   
               }
@@ -355,7 +357,7 @@ const  distribute= async () => {
       
       //the two equals mean the task is complete
       if(completeCount==totalcount){
-        logger.warn("Task--%s(%s) has complete!!",task._id,task.name)
+        logger.warn("【zmaptask】【TotalComplete!】--【%s】(%s)!",task.name,task._id)
         dbo.updateCol('task',{_id:task._id},{zmapComplete:true,zmapProgress:totalcount},(err,rest)=>{})
       }
       else{
