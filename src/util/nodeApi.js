@@ -2,31 +2,8 @@ var request = require('request');
 var log4js=require('log4js')
 var logger=log4js.getLogger()
 
-var zmapTask = {
-    add: (url_base, token, task, callback) => {
-        var param = task
-        postJson(url_base + '/zmaptask/add', token, param, callback)
-    },
-    syncCommand: (url_base, token, taskid, paused, callback) => {
-        var param = { taskId: taskid, paused: paused }
-        postJson(url_base + '/zmaptask/syncCommand', token, param, callback)
-    },
-    delete: (url_base, token, id, callback) => {
-        var param = { taskId: id }
-        postJson(url_base + '/zmaptask/delete', token, param, callback)
-    },
-    syncProgress: (url_base, token, id, timeout,callback) => {
-        var param = { taskId: id }
-        postJsonWithTimeout(url_base + '/zmaptask/syncProgress', token, param, timeout,callback)
-    },
-}
-
-
-let accessingUrl={}
 var postJson = (url, token, param, callback) => {
-    if(accessingUrl[url]==true)
-        return
-    accessingUrl[url]==true
+
     request.post({
         url: url,
         timeout:2000,
@@ -37,13 +14,11 @@ var postJson = (url, token, param, callback) => {
         },
         body: param
     }, (error, response, body) => {
-        accessingUrl[url]==false
         error ? callback(600, error) : callback(response.statusCode, body)
     })
 }
 var postJsonWithTimeout = (url, token, param, timeout,callback) => {
-    if(accessingUrl[url]==true)
-        return
+
     request.post({
         url: url,
         timeout:timeout,
@@ -54,7 +29,6 @@ var postJsonWithTimeout = (url, token, param, timeout,callback) => {
         },
         body: param
     }, (error, response, body) => {
-        accessingUrl[url]==false
         error ? callback(600, error) : callback(response.statusCode, body)
     })
 }
@@ -77,15 +51,13 @@ var zmapTask = {
         postJsonWithTimeout(url_base + '/zmaptask/syncProgress', token, param, timeout,callback)
     },
 
+}
 
-
-    // get:(condition={}, callback)=>{
-    //     var param={
-    //         condition:condition
-    //     }
-    //     postJson(api.nodeTask.get, param, callback)
-    // }
-
+var pulse={
+    pulse: (url_base, token, callback) => {
+        var param = {}
+    postJson(url_base + '/pulse', token, param, callback)
+},
 }
 
 
@@ -165,4 +137,5 @@ var myCallback = (code, body) => {
 
 module.exports = {
     zmapTask,
+    pulse,
 }

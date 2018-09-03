@@ -137,7 +137,7 @@ const task = {
       var condition = req.body
       if (condition == null)
         condition = {}
-      dbo.findCol('task',condition, (err, result) => {
+      dbo.findsortCol('task',condition,{createdAt:-1}, (err, result) => {
         err ? res.sendStatus(500) : res.json(result)
       })
     },

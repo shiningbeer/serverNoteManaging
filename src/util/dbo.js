@@ -70,6 +70,14 @@ var findlimitCol = (col, where = {},limit, callback) => {
     });
 
 }
+var findsortCol = (col, where = {},sort, callback) => {
+    if(where._id!=null)
+        where._id=ObjectId(where._id)  
+    dbo.collection(col).find(where).sort(sort).toArray((err, result) => {
+        callback(err, result)
+    });
+
+}
 var findFieldCol = (col, where = {},field, callback) => {
     if(where._id!=null)
         where._id=ObjectId(where._id)  
@@ -109,4 +117,5 @@ module.exports = {
     pushCol,
     getCount,
     findFieldCol,
+    findsortCol
 }
