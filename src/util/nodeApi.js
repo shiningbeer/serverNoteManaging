@@ -1,12 +1,12 @@
 var request = require('request');
-var log4js=require('log4js')
-var logger=log4js.getLogger()
+var log4js = require('log4js')
+var logger = log4js.getLogger()
 
 var postJson = (url, token, param, callback) => {
 
     request.post({
         url: url,
-        timeout:2000,
+        timeout: 2000,
         json: true,
         headers: {
             "content-type": "application/json",
@@ -17,11 +17,11 @@ var postJson = (url, token, param, callback) => {
         error ? callback(600, error) : callback(response.statusCode, body)
     })
 }
-var postJsonWithTimeout = (url, token, param, timeout,callback) => {
+var postJsonWithTimeout = (url, token, param, timeout, callback) => {
 
     request.post({
         url: url,
-        timeout:timeout,
+        timeout: timeout,
         json: true,
         headers: {
             "content-type": "application/json",
@@ -33,33 +33,38 @@ var postJsonWithTimeout = (url, token, param, timeout,callback) => {
     })
 }
 
-var zmapTask = {
+var task = {
     add: (url_base, token, task, callback) => {
         var param = task
-        postJson(url_base + '/zmaptask/add', token, param, callback)
+        postJson(url_base + '/task/add', token, param, callback)
     },
     syncCommand: (url_base, token, taskid, paused, callback) => {
         var param = { taskId: taskid, paused: paused }
-        postJson(url_base + '/zmaptask/syncCommand', token, param, callback)
+        postJson(url_base + '/task/syncCommand', token, param, callback)
     },
     delete: (url_base, token, id, callback) => {
         var param = { taskId: id }
-        postJson(url_base + '/zmaptask/delete', token, param, callback)
+        postJson(url_base + '/task/delete', token, param, callback)
     },
-    syncProgress: (url_base, token, id, timeout,callback) => {
+    syncProgress: (url_base, token, id, timeout, callback) => {
         var param = { taskId: id }
-        postJsonWithTimeout(url_base + '/zmaptask/syncProgress', token, param, timeout,callback)
+        postJsonWithTimeout(url_base + '/task/syncProgress', token, param, timeout, callback)
     },
 
 }
 
-var pulse={
+var pulse = {
     pulse: (url_base, token, callback) => {
         var param = {}
-    postJson(url_base + '/pulse', token, param, callback)
-},
+        postJson(url_base + '/pulse', token, param, callback)
+    },
 }
-
+var results = {
+    get: (url_base, token, taskId, skip, limit, callback) => {
+        var param = { taskId, skip, limit }
+        postJson(url_base + '/results/get', token, param, callback)
+    }
+}
 
 // var plugin={
 //     add:(file, callback) => {
@@ -136,6 +141,7 @@ var myCallback = (code, body) => {
 
 
 module.exports = {
-    zmapTask,
+    task,
     pulse,
+    results,
 }

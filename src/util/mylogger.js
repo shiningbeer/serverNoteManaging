@@ -1,6 +1,6 @@
-var log4js=require('log4js')
-var logger=log4js.getLogger()
+var log4js = require('log4js')
+var logger = log4js.getLogger()
 logger.level = 'info';
-module.exports={
+module.exports = {
     logger
 }

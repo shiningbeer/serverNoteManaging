@@ -1,15 +1,15 @@
 var express = require('express')
 var bodypaser = require('body-parser')
 var multer = require('multer')
-const {myMiddleWare}=require('./modules/middleware')
-const { user} = require('./modules/user')
-const { task} = require('./modules/task')
-const { node} = require('./modules/node')
-const { target} = require('./modules/target')
-const { plugin} = require('./modules/plugin')
-const {connect}=require('./util/dbo')
+const { myMiddleWare } = require('./modules/middleware')
+const { user } = require('./modules/user')
+const { task } = require('./modules/task')
+const { node } = require('./modules/node')
+const { target } = require('./modules/target')
+const { plugin } = require('./modules/plugin')
+const { connect } = require('./util/dbo')
 
-var {logger}=require('./util/mylogger')
+var { logger } = require('./util/mylogger')
 
 
 var app = express()
@@ -19,7 +19,7 @@ app.use(bodypaser.urlencoded({
 app.use(bodypaser.json({ limit: '50mb' }));
 app.use(bodypaser.urlencoded({ limit: '50mb', extended: true }));
 app.use(myMiddleWare.verifyToken)
-app.all('*',myMiddleWare.header );
+app.all('*', myMiddleWare.header);
 
 var upload = multer({
   dest: plugin.uploadDir
