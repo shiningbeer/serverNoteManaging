@@ -1,12 +1,7 @@
 var dbo = require('../util/dbo')
 var { logger } = require('../util/mylogger')
-const task = {
-  add: (req, res) => {
-    var newTask = req.body.newTask
-    if (newTask == null)
-      return res.sendStatus(415)
-    //todo: verify validity of newtask
-    //todo: verify if the plugin designated exists in local disk, if not, return the message 'missing plugin' to the server 
+const addTask = {
+  compo: (newTask) => {
     let { pluginList, name, targetList, description } = newTask
     var ipRangeCount = 0
     for (var target of targetList) {
@@ -19,29 +14,54 @@ const task = {
       let realTaskName = name + '--' + name_without_ext
       let newTaskToAdd = {
         //common
-        taskType: 'zmapscan',
+        type: 'compo',
         name: realTaskName,
         description,
         started: false,
         createdAt: Date.now(),
+        startAt: null,
+        completedAt: null,
         user: req.tokenContainedInfo.user,
         goWrong: false,
         paused: true,
         nodes: [],
 
-        //needed by zmap
-        targetList,
+        targetList:{
+          zmap:targetList,
+          scan:null
+        },
         port: plugin.port,
-        zmapTotal: ipRangeCount,
-        zmapProgress: 0,
-        zmapComplete: false,
-        zmapResultCollected: false,
+        total:{
+          zmap:ipRangeCount,
+          scan:null,
+        },
+        progress:{
+          zmap:0,
+          scan:0
+        },
+        complete:{
+          zmap:false,
+          scan:false,
+        },
+        resultCollected:{
+          zmap:false,
+          scan:false
+        },
 
-        //needed by scan
         plugin,
-        scanTotal: -1,
-        scanProgress: 0,
-        scanComplete: false,
+        // //needed by zmap
+        // targetList,
+        // port: plugin.port,
+        // zmapTotal: ipRangeCount,
+        // zmapProgress: 0,
+        // zmapComplete: false,
+        // zmapResultCollected: false,
+
+        // //needed by scan
+        // plugin,
+        // scanTotal: -1,
+        // scanProgress: 0,
+        // scanComplete: false,
 
       }
       dbo.insertCol('task', newTaskToAdd, (err, rest) => {
@@ -49,17 +69,42 @@ const task = {
         //create the result document
         let newResut = {
           _id: rest.insertedId,
-          port: task.port,
+          port: newTaskToAdd.port,
           results: [],
           complete: false,
           startAt: null,
           completeAt: null,
           taskName: realTaskName
         }
-        dbo.insertCol('zmapResults', newResut, (e, r) => { })
+        dbo.insertCol('results', newResut, (e, r) => { })
       })
     }
-    res.json('ok')
+  },
+  zmap: (newTask) => { },
+  scan: (newTtask) => { }
+}
+const task = {
+  add: (req, res) => {
+    var newTask = req.body.newTask
+    if (newTask == null)
+      return res.sendStatus(415)
+    let { type } = newTask
+    let wrong=false
+    switch (type) {
+      case null:
+        addTask.compo(newTask)
+        break
+      case 'zmap':
+        addTask.zmap(newTask)
+        break
+      case 'scan':
+        addTask.scan(newTask)
+        break
+      default:
+        wrong=true
+    }
+    wrong?res.sendStatus(500):res.json('ok')
+
   },
   delete: async (req, res) => {
     var taskId = req.body.taskId
@@ -68,8 +113,7 @@ const task = {
     //delete progress table created when start the task
     dbo.dropCol('progress--' + taskId, (err, result) => { })
     //delete the sub tasks produced by this task
-    dbo.updateCol('zmapNodeTask', { taskId }, { deleted: true }, (err, result) => { })
-    dbo.updateCol('scanNodeTask', { taskId }, { deleted: true }, (err, result) => { })
+    dbo.updateCol('nodeTask', { taskId }, { deleted: true }, (err, result) => { })
     //delete the task it self
     dbo.deleteCol('task', { _id: taskId }, (err, rest) => { err ? res.sendStatus(500) : res.json('ok') })
   },
@@ -100,6 +144,7 @@ const task = {
     //add the nodes
     for (var node of nodes)
       dbo.pushCol('task', { _id: task._id }, { nodes: node }, (err, rest) => { })
+    dbo.updateCol('results', { _id: task._id }, { startAt: Date.now() }, (err, rest) => { })
     //update the task
     dbo.updateCol('task', { _id: task._id }, { started: true, paused: false }, (err, rest) => {
       err ? res.sendStatus(500) : res.json('ok')
@@ -112,10 +157,7 @@ const task = {
 
     //set the related sub tasks which are not completed as paused
     await new Promise((resolve, reject) => {
-      dbo.updateCol('zmapNodeTask', { taskId, complete: false }, { paused: true, needToSync: true, goWrong: false }, (err, result) => { resolve(err) })
-    });
-    await new Promise((resolve, reject) => {
-      dbo.updateCol('scanNodeTask', { taskId, complete: false }, { paused: true, needToSync: true, goWrong: false }, (err, result) => { resolve(err) })
+      dbo.updateCol('nodeTask', { taskId, complete: false }, { paused: true, needToSync: true, goWrong: false }, (err, result) => { resolve(err) })
     });
     //set the task itself as paused
     dbo.updateCol('task', { _id: taskId }, { paused: true }, (err, rest) => {
@@ -128,10 +170,7 @@ const task = {
       return res.sendStatus(415)
     //set the related sub tasks which are not completed as not paused
     await new Promise((resolve, reject) => {
-      dbo.updateCol('zmapNodeTask', { taskId, complete: false }, { paused: false, needToSync: true }, (err, result) => { resolve(err) })
-    });
-    await new Promise((resolve, reject) => {
-      dbo.updateCol('scanNodeTask', { taskId, complete: false }, { paused: false, needToSync: true }, (err, result) => { resolve(err) })
+      dbo.updateCol('nodeTask', { taskId, complete: false }, { paused: false, needToSync: true }, (err, result) => { resolve(err) })
     });
     //set the task itself as not paused
     dbo.updateCol('task', { _id: taskId }, { paused: false }, (err, rest) => {
