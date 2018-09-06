@@ -71,7 +71,7 @@ app.post('/plugin/get', plugin.get)
 var server = app.listen(1978, function () {
   // var host = server.address().address
   // var port = server.address().port
-  connect("mongodb://localhost:27017", 'centDev2', (err) => {
+  connect("mongodb://localhost:27017", 'cent', (err) => {
     err ? logger.info('db connection fail!') : logger.info('server starts!')
   })
 
