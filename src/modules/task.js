@@ -26,42 +26,44 @@ const addTask = {
         paused: true,
         nodes: [],
 
-        targetList:{
-          zmap:targetList,
-          scan:null
-        },
-        port: plugin.port,
-        total:{
-          zmap:ipRangeCount,
-          scan:null,
-        },
-        progress:{
-          zmap:0,
-          scan:0
-        },
-        complete:{
-          zmap:false,
-          scan:false,
-        },
-        resultCollected:{
-          zmap:false,
-          scan:false
-        },
-
-        plugin,
-        // //needed by zmap
-        // targetList,
+        // targetList:{
+        //   zmap:targetList,
+        //   scan:null
+        // },
         // port: plugin.port,
-        // zmapTotal: ipRangeCount,
-        // zmapProgress: 0,
-        // zmapComplete: false,
-        // zmapResultCollected: false,
+        // total:{
+        //   zmap:ipRangeCount,
+        //   scan:null,
+        // },
+        // progress:{
+        //   zmap:0,
+        //   scan:0
+        // },
+        // complete:{
+        //   zmap:false,
+        //   scan:false,
+        // },
+        // resultCollected:{
+        //   zmap:false,
+        //   scan:false
+        // },
 
-        // //needed by scan
         // plugin,
-        // scanTotal: -1,
-        // scanProgress: 0,
-        // scanComplete: false,
+
+        
+        //needed by zmap
+        targetList,
+        port: plugin.port,
+        zmapTotal: ipRangeCount,
+        zmapProgress: 0,
+        zmapComplete: false,
+        zmapResultCollected: false,
+
+        //needed by scan
+        plugin,
+        scanTotal: -1,
+        scanProgress: 0,
+        scanComplete: false,
 
       }
       dbo.insertCol('task', newTaskToAdd, (err, rest) => {
