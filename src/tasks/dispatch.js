@@ -1,13 +1,9 @@
-var dbo = require('../util/dbo')
+var { sdao } = require('../util/dao')
 var { logger } = require('../util/mylogger')
 var { brokenNodes } = require('./pulse')
 const dispatchZmap = async () => {
     //find all zmaptask started,uncomplete and not paused
-    var zmaptasks = await new Promise((resolve, reject) => {
-      dbo.findCol('task', { started: true, zmapComplete: false, paused: false }, (err, result) => {
-        resolve(result)
-      })
-    })
+    var zmaptasks = await sdao.find('task', { started: true, zmapComplete: false, paused: false })
     //for each of the task
     for (var task of zmaptasks) {
       //get its nodes
@@ -18,30 +14,14 @@ const dispatchZmap = async () => {
         if (brokenNodes.includes(node._id.toString()))
           continue
         //have any uncomplete ip?
-        var re = await new Promise((resolve, reject) => {
-          dbo.findoneCol('progress--' + task._id.toString(), { node: node._id, complete: false }, (err, result) => {
-            resolve(result)
-          })
-        });
-        var completeCount = await new Promise((resolve, reject) => {
-          dbo.getCount('progress--' + task._id.toString(), { complete: true }, (err, result) => {
-            resolve(result)
-          })
-        });
-        var totalcount = await new Promise((resolve, reject) => {
-          dbo.getCount('progress--' + task._id.toString(), {}, (err, result) => {
-            resolve(result)
-          })
-        });
+        var re = await sdao.findone('progress--' + task._id.toString(), { node: node._id, complete: false })
+        var completeCount = await sdao.getCount('progress--' + task._id.toString(), { complete: true })
+        var totalcount = await sdao.getCount('progress--' + task._id.toString(), {})
   
         // null means new nodetask should be distributed
         if (re == null && completeCount != totalcount) {
           //get a batch of undistributed iprange
-          var iprList = await new Promise((resolve, reject) => {
-            dbo.findlimitCol('progress--' + task._id.toString(), { node: null }, 10, (err, result) => {
-              resolve(result)
-            })
-          });
+          var iprList = await sdao.findlimit('progress--' + task._id.toString(), { node: null }, 10)
           //length=0 means ips are all sent, but the last batch has not yet complete
           if (iprList.length == 0)
             continue
@@ -77,15 +57,10 @@ const dispatchZmap = async () => {
             paused: false,
             deleted: false,
           }
-          var result = await new Promise((resolve, reject) => {
-            dbo.insertCol('nodeTask', newZmapTask, (err, result) => { resolve(result) })
-          })
-          //   logger.debug(result)
+          var result = await sdao.insert('nodeTask', newZmapTask)
           //set the batch of iprange distributed
           for (var ipr of iprList) {
-            await new Promise((resolve, reject) => {
-              dbo.updateCol('progress--' + task._id.toString(), { _id: ipr._id }, { node: node._id }, (err, result) => { resolve(result) })
-            })
+            await sdao.update('progress--' + task._id.toString(), { _id: ipr._id }, { node: node._id })
           }
           logger.info('【distribution】for node【%s】: nodetask(%s) of task【%s】(%s)', node.name, result.insertedId, task.name, task._id)
         }

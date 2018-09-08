@@ -1,5 +1,4 @@
-
-var dbo = require('../util/dbo')
+var { sdao } = require('../util/dao')
 var nodeApi = require('../util/nodeApi')
 var { logger } = require('../util/mylogger')
 var { brokenNodes } = require('./pulse')
@@ -8,26 +7,18 @@ var { brokenNodes } = require('./pulse')
 
 const sendToNode = async () => {
   //find nodetasks
-  var notReceivedNodeTasks = await new Promise((resolve, reject) => {
-    dbo.findCol('nodeTask', { received: false, deleted: false }, (err, result) => {
-      resolve(result)
-    })
-  });
+  var notReceivedNodeTasks = await sdao.find('nodeTask', { received: false, deleted: false })
   for (var nodetask of notReceivedNodeTasks) {
     const { _id, nodeId, port, ipRange, ipRangeId, taskId } = nodetask
-    const t_node = await new Promise((resolve, reject) => {
-      dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
-        resolve(result)
-      })
-    })
+    const t_node = await sdao.findone('node', { _id: nodeId })
     //if the node is missing, omit
     if (t_node == null) {
       //put back its ip
       for (var ip_id of ipRangeId) {
-        dbo.updateCol('progress--' + taskId, { _id: ip_id }, { node: null }, (err, rest) => { })
+        await sdao.update('progress--' + taskId, { _id: ip_id }, { node: null })
       }
       //set it deleted
-      dbo.updateCol('nodeTask', { _id }, { deleted: true }, (err, result) => { })
+      await sdao.update('nodeTask', { _id }, { deleted: true })
       logger.warn('【sent】to node【%s】: canceled nodetask(%s) of task【%s】!', name, _id, taskId)
       continue
     }
@@ -36,10 +27,10 @@ const sendToNode = async () => {
     if (brokenNodes.includes(nodeId.toString())) {
       //put back its ip
       for (var ip_id of ipRangeId) {
-        dbo.updateCol('progress--' + taskId, { _id: ip_id }, { node: null }, (err, rest) => { })
+        await sdao.update('progress--' + taskId, { _id: ip_id }, { node: null })
       }
       //set it deleted
-      dbo.updateCol('nodeTask', { _id }, { deleted: true }, (err, result) => { })
+      await sdao.update('nodeTask', { _id }, { deleted: true })
       logger.warn('【sent】to node【%s】: canceled nodetask(%s) of task【%s】!', name, _id, taskId)
       continue
     }
@@ -60,11 +51,11 @@ const sendToNode = async () => {
 
     }
     //    logger.debug(_id)
-    nodeApi.task.add(url, token, newNodeTask, (code, body) => {
+    nodeApi.task.add(url, token, newNodeTask, async (code, body) => {
       // if return code is right, update the nodetask
       if (code == 200) {
         logger.info('【send】to node 【%s】: received successful nodetask(%s) of task(%s) !', name, _id.toString(), taskId)
-        dbo.updateCol('nodeTask', { _id }, { received: true, needToSync: false }, (err, rest) => { })
+        await sdao.update('nodeTask', { _id }, { received: true, needToSync: false })
       }
 
     })
@@ -72,36 +63,23 @@ const sendToNode = async () => {
   }
 }
 const deleteMarked = async () => {
-  var deletedNodeTasks = await new Promise((resolve, reject) => {
-    dbo.findCol('nodeTask', { deleted: true }, (err, result) => {
-      resolve(result)
-    })
-  });
+  var deletedNodeTasks = await sdao.find('nodeTask', { deleted: true })
 
   for (var nodetask of deletedNodeTasks) {
     const { _id, nodeId, taskId } = nodetask
 
     //take out the node
-    var t_node = await new Promise((resolve, reject) => {
-      dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
-        resolve(result)
-      })
-    })
+    var t_node = await await sdao.findone('node', { _id: nodeId })
 
     //if the node is missing, just delete the task
     if (t_node == null) {
-      await new Promise((resolve, reject) => {
-        dbo.deleteCol('nodeTask', { _id: _id }, (err, result) => { resolve(result) })
-
-      })
+      await sdao.delete('nodeTask', { _id: _id })
       continue
     }
     const name = t_node.name
     // if not received, delete directly
     if (!nodetask.received) {
-      await new Promise((resolve, reject) => {
-        dbo.deleteCol('nodeTask', { _id }, (err, result) => { resolve(result) })
-      })
+      await sdao.delete('nodeTask', { _id })
       logger.warn('【deleteCommand】to node【%s】: direct deleted not received nodetask(%s) of task(%s)!', name, _id, taskId)
       continue
     }
@@ -109,11 +87,11 @@ const deleteMarked = async () => {
       continue
     }
     //access the node to delete the node side task
-    nodeApi.task.delete(t_node.url, t_node.token, _id, (code, body) => {
+    nodeApi.task.delete(t_node.url, t_node.token, _id, async (code, body) => {
       // if return code is right, update the nodetask
       if (code == 200) {
         logger.info('【deleteCommand】to node【%s】:delete successful nodetask(%s) of task(%s)!', name, _id, taskId)
-        dbo.deleteCol('nodeTask', { _id: _id }, (err, result) => { })
+        await sdao.delete('nodeTask', { _id: _id })
       }
     })
   }
@@ -124,11 +102,7 @@ const syncCommandToNode = async () => {
 
 
   //last to deal with the needToSync
-  var needToSyncNodeTasks = await new Promise((resolve, reject) => {
-    dbo.findCol('nodeTask', { needToSync: true, complete: false, deleted: false }, (err, result) => {
-      resolve(result)
-    })
-  });
+  var needToSyncNodeTasks = await sdao.find('nodeTask', { needToSync: true, complete: false, deleted: false })
   for (var nodetask of needToSyncNodeTasks) {
     //take out the node
     const { _id, nodeId, paused } = nodetask
@@ -136,59 +110,43 @@ const syncCommandToNode = async () => {
     if (brokenNodes.includes(nodeId.toString())) {
       continue
     }
-    const t_node = await new Promise((resolve, reject) => {
-      dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
-        resolve(result)
-      })
-    })
+    const t_node = await sdao.findone('node', { _id: nodeId })
     //if the node is missing, omit
     if (t_node == null)
       continue
     const { url, token, name } = t_node
-    nodeApi.task.syncCommand(url, token, _id.toString(), paused, (code, body) => {
+    nodeApi.task.syncCommand(url, token, _id.toString(), paused, async (code, body) => {
       // if return code is right, update the nodetask
       if (code == 200) {
         logger.info('【Pause/Resume】 to node【%s】:sucessful!', name)
-        dbo.updateCol('nodeTask', { _id: _id }, { needToSync: false }, (err, rest) => { })
+        await sdao.update('nodeTask', { _id: _id }, { needToSync: false })
       }
     })
   }
 }
 const syncProgressFromNode = async () => {
   //find all task started,uncomplete and not paused
-  var zmaptasks = await new Promise((resolve, reject) => {
-    dbo.findCol('task', { started: true, zmapComplete: false, paused: false }, (err, result) => {
-      resolve(result)
-    })
-  })
+  var zmaptasks = await sdao.find('task', { started: true, zmapComplete: false, paused: false })
   //for each of the task
   for (var task of zmaptasks) {
     //get all its uncompleted nodetasks, 
-    var nodetasks = await new Promise((resolve, reject) => {
-      dbo.findCol('nodeTask', { taskId: task._id.toString(), received: true, complete: false, deleted: false }, (err, result) => {
-        resolve(result)
-      })
-    });
+    var nodetasks = await sdao.find('nodeTask', { taskId: task._id.toString(), received: true, complete: false, deleted: false })
 
     for (var nodetask of nodetasks) {
 
       //converge the nodetasks progress and status to the task
       const { _id, ipRangeId, nodeId, taskId } = nodetask
       //if node is broken, the nodetask should be canceled
-      const t_node = await new Promise((resolve, reject) => {
-        dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
-          resolve(result)
-        })
-      })
+      const t_node = await sdao.findone('node', { _id: nodeId })
 
       //if the node is missing, omit
       if (t_node == null) {
         //put back its ip
         for (var ip_id of ipRangeId) {
-          dbo.updateCol('progress--' + taskId, { _id: ip_id }, { node: null }, (err, rest) => { })
+          await sdao.update('progress--' + taskId, { _id: ip_id }, { node: null })
         }
         //set it deleted
-        dbo.updateCol('nodeTask', { _id }, { deleted: true }, (err, result) => { })
+        await sdao.update('nodeTask', { _id }, { deleted: true })
         logger.warn('【sent】to node【%s】: canceled nodetask(%s) of task【%s】!', name, _id, taskId)
         continue
       }
@@ -197,10 +155,10 @@ const syncProgressFromNode = async () => {
       if (brokenNodes.includes(nodeId.toString())) {
         //put back its ip
         for (var ip_id of ipRangeId) {
-          dbo.updateCol('progress--' + taskId, { _id: ip_id }, { node: null }, (err, rest) => { })
+          await sdao.update('progress--' + taskId, { _id: ip_id }, { node: null })
         }
         //set it deleted
-        dbo.updateCol('nodeTask', { _id }, { deleted: true }, (err, result) => { })
+        await sdao.update('nodeTask', { _id }, { deleted: true })
         logger.warn("【progress】from node【%s】: canceled nodetask(%s) of task(%s)!", name, _id.toString(), taskId)
         continue
       }
@@ -222,18 +180,12 @@ const syncProgressFromNode = async () => {
           logger.debug(body)
           if (complete) {
             for (var ip_id of ipRangeId) {
-              await new Promise((resolve, reject) => {
-                dbo.updateCol('progress--' + taskId.toString(), { _id: ip_id }, { complete: true }, (err, rest) => {
-                  resolve(err)
-                })
-              })
+                await sdao.update('progress--' + taskId.toString(), { _id: ip_id }, { complete: true })
             }
             logger.warn('【Complete!】of node【%s】： nodetask(%s) of task(%s)!', name, _id, taskId)
-
-
           }
           //update the sever side nodetask
-          dbo.updateCol('nodeTask', { _id: _id }, { progress, goWrong, complete, running, resultCount }, (err, result) => { })
+          await sdao.update('nodeTask', { _id: _id }, { progress, goWrong, complete, running, resultCount })
 
         }
 

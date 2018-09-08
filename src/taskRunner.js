@@ -1,4 +1,4 @@
-var { connect } = require('./util/dbo')
+var { adao } = require('./util/dao')
 var { logger } = require('./util/mylogger')
 var { runSync } = require('./tasks/sync')
 var { runPulse } = require('./tasks/pulse')
@@ -6,7 +6,7 @@ var { runDispatch } = require('./tasks/dispatch')
 var { runGetResults } = require('./tasks/getResults')
 var { runCollect } = require('./tasks/collect')
 
-connect("mongodb://localhost:27017", 'cent', (err) => {
+adao.connect("mongodb://localhost:27017", 'cent', (err) => {
     err ? logger.info('db connection fail!') : logger.info('task runner starts!')
 })
 //the whole set of run task

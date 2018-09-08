@@ -1,16 +1,11 @@
-var dbo = require('../util/dbo')
+var { sdao } = require('../util/dao')
 var nodeApi = require('../util/nodeApi')
 var { logger } = require('../util/mylogger')
 
 let brokenNodes = []
 let nodeConnectFailTime = {}
 const pulseOnLine = async () => {
-    const nodes = await new Promise((resolve, reject) => {
-        dbo.findCol('node', {}, (err, result) => {
-            resolve(result)
-        })
-    })
-    // logger.debug(nodes.length)
+    const nodes = await sdao.find('node', {})
     for (var node of nodes) {
         if (brokenNodes.includes(node._id.toString())) {
             // logger.debug(node)
@@ -18,7 +13,7 @@ const pulseOnLine = async () => {
         }
         // logger.debug(node)
         const { url, token, _id, name } = node
-        nodeApi.pulse.pulse(url, token, (code, body) => {
+        nodeApi.pulse.pulse(url, token, async (code, body) => {
             if (code != 200) {
                 if (nodeConnectFailTime[_id] == null)
                     nodeConnectFailTime[_id] = 1
@@ -43,17 +38,13 @@ const pulseOnLine = async () => {
 const pulseOffLine = async () => {
     var toRemove = -1
     for (var nodeId of brokenNodes) {
-        const node = await new Promise((resolve, reject) => {
-            dbo.findoneCol('node', { _id: nodeId }, (err, result) => {
-                resolve(result)
-            })
-        })
-        if (node == null){
+        const node = await sdao.findone('node', { _id: nodeId })
+        if (node == null) {
             toRemove = brokenNodes.indexOf(nodeId)
             continue
         }
         const { _id, name, url, token } = node
-        nodeApi.pulse.pulse(url, token, (code, body) => {
+        nodeApi.pulse.pulse(url, token, async (code, body) => {
             if (code == 200) {
 
                 // if (nodeConnectFailTime[node._id]==null)

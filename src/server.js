@@ -7,7 +7,7 @@ const { task } = require('./modules/task')
 const { node } = require('./modules/node')
 const { target } = require('./modules/target')
 const { plugin } = require('./modules/plugin')
-const { connect } = require('./util/dbo')
+const { adao } = require('./util/dao')
 
 var { logger } = require('./util/mylogger')
 
@@ -71,7 +71,7 @@ app.post('/plugin/get', plugin.get)
 var server = app.listen(1978, function () {
   // var host = server.address().address
   // var port = server.address().port
-  connect("mongodb://localhost:27017", 'cent', (err) => {
+ adao.connect("mongodb://localhost:27017", 'cent', (err) => {
     err ? logger.info('db connection fail!') : logger.info('server starts!')
   })
 
