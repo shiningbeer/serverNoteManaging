@@ -1,10 +1,10 @@
 var { adao } = require('./util/dao')
 var { logger } = require('./util/mylogger')
-var { runSync } = require('./tasks/sync')
-var { runPulse } = require('./tasks/pulse')
-var { runDispatch } = require('./tasks/dispatch')
-var { runGetResults } = require('./tasks/getResults')
-var { runCollect } = require('./tasks/collect')
+var { runSync } = require('./taskFunctions/sync')
+var { runPulse } = require('./taskFunctions/pulse')
+var { runDispatch } = require('./taskFunctions/dispatch')
+var { runGetResults } = require('./taskFunctions/getResults')
+var { runCollect } = require('./taskFunctions/collect')
 
 adao.connect("mongodb://localhost:27017", 'cent', (err) => {
     err ? logger.info('db connection fail!') : logger.info('task runner starts!')
