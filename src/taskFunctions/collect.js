@@ -2,8 +2,8 @@ var { sdao } = require('../util/dao')
 var { logger } = require('../util/mylogger')
 const collectZmap = async () => {
 
-    var zmaptasks = await sdao.find('task', { started: true, zmapComplete: false, paused: false })
-    for (var task of zmaptasks) {
+    var ongoingTasks = await sdao.find('task', { started: true, complete: false, paused: false })
+    for (var task of ongoingTasks) {
       let totalProgress = 0//totalprogress should be the complete count the iprange of the progress table, plus sum of the progress of ongoing nodetasks
       let totalGoWrong = false
       var nodetasks = await sdao.find('nodeTask', { taskId: task._id.toString(), received: true, complete: false, deleted: false })
@@ -22,11 +22,11 @@ const collectZmap = async () => {
       //the two equals mean the task is complete
       if (completeCount == totalcount) {
         logger.warn("【TotalComplete!】--【%s】(%s)!", task.name, task._id)
-        await sdao.update('task', { _id: task._id }, { zmapComplete: true, zmapProgress: totalcount })
+        await sdao.update('task', { _id: task._id }, { complete: true, progress: totalcount })
       }
       else {
         totalProgress = totalProgress + completeCount
-        await sdao.update('task', { _id: task._id }, { zmapProgress: totalProgress, goWrong: totalGoWrong })
+        await sdao.update('task', { _id: task._id }, { progress: totalProgress, goWrong: totalGoWrong })
       }
   
     }

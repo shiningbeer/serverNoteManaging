@@ -8,7 +8,8 @@ const dispatchZmap = async () => {
   //for each of the task
   for (var task of unFinishedTasks) {
     //get its nodes
-    const { nodes, type } = task
+    const { nodes, type,stage } = task
+    const taskFunc = taskSelector(type)
     //for each of its node
     for (var node of nodes) {
       //if broken,next
@@ -22,7 +23,8 @@ const dispatchZmap = async () => {
       // null means new nodetask should be distributed
       if (re == null && completeCount != totalcount) {
         //get a batch of undistributed iprange
-        var iprList = await sdao.findlimit('progress--' + task._id.toString(), { node: null }, 10)
+        const batchCount=taskFunc.getIpBatchCount(stage)
+        var iprList = await sdao.findlimit('progress--' + task._id.toString(), { node: null }, batchCount)
         //length=0 means ips are all sent, but the last batch has not yet complete
         if (iprList.length == 0)
           continue
@@ -57,7 +59,6 @@ const dispatchZmap = async () => {
           paused: false,
           deleted: false,
         }
-        const taskFunc = taskSelector(type)
         newNodeTask = taskFunc.addSpecialFieldWhenDispatchNodeTask(task, newNodeTask)
         var result = await sdao.insert('nodeTask', newNodeTask)
         //set the batch of iprange distributed

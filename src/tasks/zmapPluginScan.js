@@ -72,9 +72,46 @@ const zmapPluginScan = {
     }
   },
   addSpecialFieldWhenDispatchNodeTask: (task, nodetask) => {
-    task.stage == 'zmap' ? nodetask.port = task.port : nodetask.plugin = task.pluing
+    task.stage == 'zmap' ? nodetask.port = task.port : nodetask.plugin = task.plugin
+    task.stage == 'zmap' ? nodetask.type = 'zmap' : nodetask.type = 'plugin'
     return nodetask
   },
+  getIpBatchCount:(stage)=>{
+    if(stage=='zmap')
+      return 10
+    else
+      return 200
+  },
+  markTaskResultCollected:async (stage,taskId,taskName,)=>{
+    if(stage=='plugin'){
+      logger.info('【result】: 【Complete】 collecting results for task 【%s】！', taskName)
+      await sdao.update('task', { _id: taskId }, { resultCollected: true })
+      await sdao.update('scanResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
+
+    }
+    else{
+      logger.info('【result】: 【Complete】 collecting results for task 【%s】(stage zmap)！', taskName)
+      await sdao.dropCol('progress--'+taskId.toString())
+      let ipRange=[]
+      let zmapResult=await sdao.findone('zmapResults',{_id:taskId})
+      console.log(zmapResult)
+      for(var r of zmapResult.results){
+        var ipR = { ipr:r, complete: false, node: null }
+        await sdao.insert('progress--' + taskId.toString(), ipR)
+      }
+      await sdao.update('task', { _id: taskId }, { complete: false,stage:'plugin',progress:0,targetList:taskId,total:zmapResult.results.length})
+      await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
+    }
+  },
+  recordResult:async (stage,taskId,result)=>{
+    if(stage=='plugin'){
+      await sdao.push('pluginResults', { _id: taskId }, { results: result })
+    }
+    else{
+      await sdao.push('zmapResults', { _id: taskId }, { results: result })
+    }
+  },
+
 }
 module.exports = {
   zmapPluginScan

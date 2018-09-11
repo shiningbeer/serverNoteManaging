@@ -9,7 +9,7 @@ const sendToNode = async () => {
   //find nodetasks
   var notReceivedNodeTasks = await sdao.find('nodeTask', { received: false, deleted: false })
   for (var nodetask of notReceivedNodeTasks) {
-    const { _id, nodeId, port, ipRange, ipRangeId, taskId } = nodetask
+    const { _id, nodeId, port, ipRange, ipRangeId, taskId ,type,plugin} = nodetask
     const t_node = await sdao.findone('node', { _id: nodeId })
     //if the node is missing, omit
     if (t_node == null) {
@@ -47,7 +47,9 @@ const sendToNode = async () => {
       taskId: _id.toString(),
       port,
       ipRange,
-      paused: false
+      paused: false,
+      type,
+      plugin
 
     }
     //    logger.debug(_id)
@@ -126,9 +128,9 @@ const syncCommandToNode = async () => {
 }
 const syncProgressFromNode = async () => {
   //find all task started,uncomplete and not paused
-  var zmaptasks = await sdao.find('task', { started: true, zmapComplete: false, paused: false })
+  var ongoingTasks = await sdao.find('task', { started: true, complete: false, paused: false })
   //for each of the task
-  for (var task of zmaptasks) {
+  for (var task of ongoingTasks) {
     //get all its uncompleted nodetasks, 
     var nodetasks = await sdao.find('nodeTask', { taskId: task._id.toString(), received: true, complete: false, deleted: false })
 

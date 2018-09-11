@@ -2,13 +2,16 @@ var { sdao } = require('../util/dao')
 var nodeApi = require('../util/nodeApi')
 var { logger } = require('../util/mylogger')
 var { brokenNodes } = require('./pulse')
+const { taskSelector } = require('../tasks/selector')
 const getZmapResults = async () => {
     //find complete but result not been fully collected zmap task 
-    const tasks = await sdao.find('task', { zmapComplete: true, zmapResultCollected: false })
+    const tasks = await sdao.find('task', { complete: true, resultCollected: false })
     // logger.debug(tasks)
     for (var task of tasks) {
         const taskId = task._id.toString()
         const taskName = task.name
+        const taskStage=task.stage
+        const taskFunc=taskSelector(task.type)
         logger.debug(taskId)
 
         //find all its node tasks that have completed but have't fully colllected results
@@ -16,9 +19,7 @@ const getZmapResults = async () => {
         const nodetasks = await sdao.find('nodeTask', { taskId, complete: true, $where: "this.resultCount>this.resultReceived" })
         //if no nodetask found, it means all collected,set the task zmapResultCollected=true
         if (nodetasks.length == 0) {
-            logger.info('【result】: 【Complete】 collecting results for task 【%s】！', task.name)
-            await sdao.update('task', { _id: taskId }, { zmapResultCollected: true })
-            await sdao.update('results', { _id: taskId }, { complete: true, completeAt: Date.now() })
+            taskFunc.markTaskResultCollected(taskStage,taskId,taskName)
             continue
         }
         for (var nodetask of nodetasks) {
@@ -30,13 +31,12 @@ const getZmapResults = async () => {
             const { url, token, _id, name } = node
             if (brokenNodes.includes(_id.toString()))
                 continue
-            nodeApi.results.get(url, token, nodetaskid, resultReceived, 10, async (code, body) => {
+            nodeApi.results.get(url, token, nodetaskid, resultReceived, 100, async (code, body) => {
                 if (code == 200) {
-                    logger.debug(body)
                     logger.info('【result】from node 【%s】:sucessful, nodetask【%s】of task【%s】', name, nodetaskid, taskName)
                     await sdao.update('nodeTask', { _id: nodetaskid }, { resultReceived: resultReceived + body.length })
                     for (var r of body) {
-                        await sdao.push('results', { _id: taskId }, { results: r })
+                        taskFunc.recordResult(taskStage,taskId,r)
                     }
                 }
             })
