@@ -31,7 +31,7 @@ const getZmapResults = async () => {
             const { url, token, _id, name } = node
             if (brokenNodes.includes(_id.toString()))
                 continue
-            nodeApi.results.get(url, token, nodetaskid, resultReceived, 100, async (code, body) => {
+            nodeApi.results.get(url, token, nodetaskid, resultReceived, 10000, async (code, body) => {
                 if (code == 200) {
                     logger.info('【result】from node 【%s】:sucessful, nodetask【%s】of task【%s】', name, nodetaskid, taskName)
                     await sdao.update('nodeTask', { _id: nodetaskid }, { resultReceived: resultReceived + body.length })
