@@ -58,62 +58,64 @@ const sendToNode = async () => {
 }
 //本程序是定时执行的程序，每次执行时将nodeTask表中标注删除的子任务删除
 const deleteMarked = async () => {
+  //找出所有标注为删除的子任务
   var deletedNodeTasks = await sdao.find('nodeTask', { deleted: true })
 
   for (var nodetask of deletedNodeTasks) {
-    const { _id, nodeId, taskId } = nodetask
+    const { _id, nodeId, taskId, taskName } = nodetask
 
-    //take out the node
+    //取出节点信息
     var t_node = await await sdao.findone('node', { _id: nodeId })
 
-    //if the node is missing, just delete the task
+    //如果节点不存在，直接删除子任务
     if (t_node == null) {
       await sdao.delete('nodeTask', { _id: _id })
       continue
     }
     const name = t_node.name
-    // if not received, delete directly
+    //如果任务还没接收到，所以没必要访问节点去通知，可以直接删除
     if (!nodetask.received) {
       await sdao.delete('nodeTask', { _id })
-      logger.warn('【deleteCommand】to node【%s】: direct deleted not received nodetask(%s) of task(%s)!', name, _id, taskId)
+      logger.warn('【删除】node【%s】: direct deleted not received nodetask(%s) of task(%s)!', name, _id, taskId)
+      logger.warn('【删除】:【任务%s】【节点%s】【子任务%s】!', taskName, name, _id.toString())
       continue
     }
+    //如果节点不在线，则暂不处理
     if (brokenNodes.includes(nodeId.toString())) {
       continue
     }
-    //access the node to delete the node side task
+    //访问节点，通知节点删除任务
     nodeApi.task.delete(t_node.url, t_node.token, _id, async (code, body) => {
-      // if return code is right, update the nodetask
+      //如果返回成功，则更新表，将其删除，否则留待下次处理，什么也不做 
       if (code == 200) {
-        logger.info('【deleteCommand】to node【%s】:delete successful nodetask(%s) of task(%s)!', name, _id, taskId)
+        logger.warn('【删除】:【任务%s】【节点%s】【子任务%s】!', taskName, name, _id.toString())
         await sdao.delete('nodeTask', { _id: _id })
       }
     })
   }
 }
+//这是定时程序，每次执行时将nodetask表中注明需要同步的子任务，把paused同步到节点
 const syncCommandToNode = async () => {
-  //first deal deletedG
-
-
-
-  //last to deal with the needToSync
+  //找出所有需要同步的子任务
   var needToSyncNodeTasks = await sdao.find('nodeTask', { needToSync: true, complete: false, deleted: false })
   for (var nodetask of needToSyncNodeTasks) {
-    //take out the node
-    const { _id, nodeId, paused } = nodetask
-
+    const { _id, nodeId, paused, taskName } = nodetask
+    //如果节点不在线，则不处理
     if (brokenNodes.includes(nodeId.toString())) {
       continue
     }
+    //取出节点
     const t_node = await sdao.findone('node', { _id: nodeId })
-    //if the node is missing, omit
+    //如果节点不存在，不处理
     if (t_node == null)
       continue
     const { url, token, name } = t_node
+    //访问节点以同步paused属性
     nodeApi.task.syncCommand(url, token, _id.toString(), paused, async (code, body) => {
-      // if return code is right, update the nodetask
+      // 如果返回正确，则更新数据库，标注其已同步，否则不处理。
       if (code == 200) {
         logger.info('【Pause/Resume】 to node【%s】:sucessful!', name)
+        logger.warn('【暂停/】:【任务%s】【节点%s】【子任务%s】!', taskName, name, _id.toString())
         await sdao.update('nodeTask', { _id: _id }, { needToSync: false })
       }
     })
