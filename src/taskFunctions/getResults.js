@@ -4,43 +4,43 @@ var { logger } = require('../util/mylogger')
 var { brokenNodes } = require('./pulse')
 const { taskSelector } = require('../tasks/selector')
 const getZmapResults = async () => {
-    //find complete but result not been fully collected zmap task 
-    const tasks = await sdao.find('task', { complete: true, resultCollected: false })
-    // logger.debug(tasks)
+    //取出数据库中所有结果未接受完毕的任务，循环处理
+    const tasks = await sdao.find('task', { resultCollected: false })
     for (var task of tasks) {
         const taskId = task._id.toString()
         const taskName = task.name
-        const taskStage=task.stage
-        const taskFunc=taskSelector(task.type)
-        logger.debug(taskId)
+        const taskStage = task.stage
+        //根据任务类型，选择不同的处理函数
+        const taskFunc = taskSelector(task.type)
 
-        //find all its node tasks that have completed but have't fully colllected results
-        //find tasks where result count and result received count not equal
-        const nodetasks = await sdao.find('nodeTask', { taskId, complete: true, $where: "this.resultCount>this.resultReceived" })
-        //if no nodetask found, it means all collected,set the task zmapResultCollected=true
-        if (nodetasks.length == 0) {
-            taskFunc.markTaskResultCollected(taskStage,taskId,taskName)
+        //找出该任务一条已经结束、但结果数和已经收到结果数不一致的子任务
+        const nodetask = await sdao.findone('nodeTask', { taskId, complete: true, $where: "this.resultCount>this.resultReceived" })
+        //如果没有，说明已发布子任务的结果已经全部传回，再加上如果这个任务已经完成，可以断定该任务的结果全部收到
+        if (nodetask.length == null && task.complete == true) {
+            taskFunc.markTaskResultCollected(taskStage, taskId, taskName)
             continue
         }
-        for (var nodetask of nodetasks) {
-            const { nodeId, resultReceived, } = nodetask
-            const nodetaskid = nodetask._id
-            const node = await sdao.findone('node', { _id: nodeId })
-            if (node == null)
-                continue
-            const { url, token, _id, name } = node
-            if (brokenNodes.includes(_id.toString()))
-                continue
-            nodeApi.results.get(url, token, nodetaskid, resultReceived, 10000, async (code, body) => {
-                if (code == 200) {
-                    logger.info('【result】from node 【%s】:sucessful, nodetask【%s】of task【%s】', name, nodetaskid, taskName)
-                    await sdao.update('nodeTask', { _id: nodetaskid }, { resultReceived: resultReceived + body.length })
-                    for (var r of body) {
-                        taskFunc.recordResult(taskStage,taskId,r)
-                    }
+        //将这一条子任务的结果取回1000条
+        const { nodeId, resultReceived, resultCount } = nodetask
+        const nodetaskid = nodetask._id
+        //取得node信息
+        const node = await sdao.findone('node', { _id: nodeId })
+        if (node == null)
+            continue
+        const { url, token, _id, name } = node
+        if (brokenNodes.includes(_id.toString()))
+            continue
+        //访问节点，取回结果
+        nodeApi.results.get(url, token, nodetaskid, resultReceived, 1000, async (code, body) => {
+            if (code == 200) {
+                let nowRC = resultReceived + body.length
+                logger.info('【result】from node 【%s】:s%/s%, nodetask【%s】of task【%s】', name, nowRC, resultCount, nodetaskid, taskName)
+                await sdao.update('nodeTask', { _id: nodetaskid }, { resultReceived: nowRC })
+                for (var r of body) {
+                    taskFunc.recordResult(taskStage, taskId, r)
                 }
-            })
-        }
+            }
+        })
     }
 }
 const getResults = () => {
