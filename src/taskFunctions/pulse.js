@@ -4,23 +4,26 @@ var { logger } = require('../util/mylogger')
 
 let brokenNodes = []
 let nodeConnectFailTime = {}
+//定时程序，每次执行时取出数据库所有节点判断是否在线
 const pulseOnLine = async () => {
+    //取出所有节点
     const nodes = await sdao.find('node', {})
     for (var node of nodes) {
+        //如果已经不在线，则不处理
         if (brokenNodes.includes(node._id.toString())) {
-            // logger.debug(node)
             continue
         }
-        // logger.debug(node)
+        //访问节点
         const { url, token, _id, name } = node
         nodeApi.pulse.pulse(url, token, async (code, body) => {
+            //如果返回不成功，则判断次数，连续3次返回不成功则判断为不在线
             if (code != 200) {
                 if (nodeConnectFailTime[_id] == null)
                     nodeConnectFailTime[_id] = 1
                 else
                     nodeConnectFailTime[_id] = nodeConnectFailTime[_id] + 1
 
-                logger.warn("【pulse】to node【%s】: failed for %i time", name, nodeConnectFailTime[_id])
+                logger.warn("【心跳】:【节点%s】【失败%s次】", name, nodeConnectFailTime[_id])
                 if (nodeConnectFailTime[_id] == 3) {
                     logger.warn("【pulse】to node【%s】:node regarded as off-line!", name)
                     brokenNodes.push(_id.toString())
