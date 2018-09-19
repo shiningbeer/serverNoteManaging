@@ -44,6 +44,7 @@ app.post('/task/resume', task.resume)
 app.post('/task/get', task.get)
 app.post('/task/getdetail', task.getDetail)
 app.post('/task/getResult', task.getResult)
+app.post('/task/resultToES', task.resultToES)
 
 
 

@@ -68,7 +68,6 @@ const zmapPluginScan = {
         var ipR = { ipr, complete: false, node: null }
         await sdao.insert('progress--' + rest.insertedId.toString(), ipR)
       }
-      logger.info('task %s successfully added, type %s, progress table created,two results documents created!', realTaskName, type)
     }
   },
   addSpecialFieldWhenDispatchNodeTask: (task, nodetask) => {
@@ -105,7 +104,7 @@ const zmapPluginScan = {
         await sdao.insert('progress--' + taskId.toString(), ipR)
       }
       //给任务属性重新赋值，标注为plugin阶段
-      await sdao.update('task', { _id: taskId }, { complete: false, stage: 'plugin', progress: 0, targetList: taskId, total: zmapResult.results.length })
+      await sdao.update('task', { _id: taskId }, { toES:false,complete: false, stage: 'plugin', progress: 0, targetList: taskId, total: zmapResult.results.length })
     }
   },
   recordResult: async (stage, taskId, result) => {

@@ -141,5 +141,4 @@ var myCallback = (code, body) => {
 module.exports = {
     task,
     pulse,
-    results,
 }

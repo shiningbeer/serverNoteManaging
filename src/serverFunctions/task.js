@@ -1,6 +1,7 @@
 var { sdao } = require('../util/dao')
 var { logger } = require('../util/mylogger')
 const { taskSelector } = require('../tasks/selector')
+var elasticsearch = require('elasticsearch');
 
 const task = {
   add: async (req, res) => {
@@ -28,20 +29,17 @@ const task = {
   },
 
   start: async (req, res) => {
-    var task = req.body.task
-    var nodes = req.body.nodeList
-    if (task == null || nodes == null)
+    console.log(req.body)
+    var { taskId, nodeList } = req.body
+    if (taskId == null || nodeList == null)
       return res.sendStatus(415)
-    var { targetList, plugin } = task
-    //merge all the ip of targets
-
     //add the nodes
-    for (var node of nodes) {
-      await sdao.push('task', { _id: task._id }, { nodes: node })
+    for (var node of nodeList) {
+      await sdao.push('task', { _id: taskId }, { nodes: node })
     }
-    await sdao.update('results', { _id: task._id }, { startAt: Date.now() })
+    await sdao.update('results', { _id: taskId }, { startAt: Date.now() })
     //update the task
-    await sdao.update('task', { _id: task._id }, { started: true, paused: false })
+    await sdao.update('task', { _id: taskId }, { started: true, paused: false })
     res.json('ok')
   },
   pause: async (req, res) => {
@@ -66,36 +64,70 @@ const task = {
     res.json('ok')
   },
   get: async (req, res) => {
-    var condition = req.body
+    var {condition} = req.body
     if (condition == null)
-      condition = {}
+      return res.sendStatus(415)
     let result = await sdao.findsort('task', condition, { createdAt: -1 })
     res.json(result)
   },
   getDetail: async (req, res) => {
-    var id = req.body.id
-    if (id == null)
+    var { taskId } = req.body
+    if (taskId == null)
       return res.sendStatus(415)
-    let result = await sdao.findone('task', { _id: id })
+    let result = await sdao.findone('task', { _id: taskId })
     res.json(result)
   },
 
   getResult: async (req, res) => {
-    var id = req.body.id
-    if (id == null)
+    var { taskId } = req.body
+    if (taskId == null)
       return res.sendStatus(415)
-    let task = await sdao.findone('task', { _id: id })
+    let task = await sdao.findone('task', { _id: taskId })
     let result = []
     if (task.stage == 'zmap') {
-      re = await sdao.findone('zmapResults', { _id: id })
+      re = await sdao.findone('zmapResults', { _id: taskId })
       result = re.results
     }
     if (task.stage == 'plugin') {
-      re = await sdao.findone('pluginResults', { _id: id })
+      re = await sdao.findone('pluginResults', { _id: taskId })
       result = re.results
 
     }
     res.json(result)
+  },
+  resultToES: async (req, res) => {
+    console.log(111)
+    var { taskId } = req.body
+    if (taskId == null)
+      return res.sendStatus(415)
+    let task = await sdao.findone('task', { _id: taskId })
+    let result = []
+    if (task.stage == 'zmap') {
+      re = await sdao.findone('zmapResults', { _id: taskId })
+      result = re.results
+    }
+    if (task.stage == 'plugin') {
+      re = await sdao.findone('pluginResults', { _id: taskId })
+      result = re.results
+
+    }
+    var client = new elasticsearch.Client({
+      host: '192.187.10.150:9200',
+      log: 'trace'
+    });
+    for (var r of result) {
+      client.index({
+        index: task.name, //相当于database
+        type: 'data',  //相当于table
+        body: r
+      }, (error, response) => {
+        // 
+        console.log(error)
+        console.log(response)
+      });
+    }
+    await sdao.update('task', { _id: taskId }, { toES: true })
+    res.json('ok')
   },
 
 }
