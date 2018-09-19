@@ -29,6 +29,7 @@ const sendToNode = async () => {
       continue
     }
 
+    const { url, token, name } = t_node
     //传递给节点的属性
     let newNodeTask = {
       taskId: _id.toString(),
@@ -109,7 +110,6 @@ const syncCommandToNode = async () => {
     nodeApi.task.syncCommand(url, token, _id.toString(), paused, async (code, body) => {
       // 如果返回正确，则更新数据库，标注其已同步，否则不处理。
       if (code == 200) {
-        logger.info('【Pause/Resume】 to node【%s】:sucessful!', name)
         logger.warn('【暂停/开始】:【任务%s】【节点%s】【子任务%s】!', taskName, name, _id.toString())
         await sdao.update('nodeTask', { _id: _id }, { needToSync: false })
       }
@@ -125,7 +125,7 @@ const syncProgressFromNode = async () => {
     var nodetasks = await sdao.find('nodeTask', { taskId: task._id.toString(), received: true, complete: false, deleted: false })
 
     for (var nodetask of nodetasks) {
-      const { _id, ipRangeId, nodeId, taskId, taskName } = nodetask
+      const { _id, ipRangeId, nodeId, taskId, taskName,ipTotal } = nodetask
       //取出节点
       const t_node = await sdao.findone('node', { _id: nodeId })
       //如果节点不存在，或者节点不在线，则撤回该任务
@@ -155,14 +155,14 @@ const syncProgressFromNode = async () => {
             running,
             resultCount,
           } = body
-          logger.warn('【接受进度】:【任务%s】【节点%s】【子任务%s】【进度%s】', taskName, name, _id, progress)
+          logger.warn('【接受进度】:【任务%s】【节点%s】【子任务%s】【进度%s/%s】', taskName, name, _id, progress,ipTotal)
 
 
           if (complete) {
             for (var ip_id of ipRangeId) {
               await sdao.update('progress--' + taskId.toString(), { _id: ip_id }, { complete: true })
             }
-            logger.warn('【完成】:【任务%s】【节点%s】【子任务%s】', taskName, name, _id)
+            logger.warn('【子任务完成】:【任务%s】【节点%s】【子任务%s】', taskName, name, _id)
           }
           //将进度更新至nodeTask表
           await sdao.update('nodeTask', { _id: _id }, { progress, goWrong, complete, running, resultCount })

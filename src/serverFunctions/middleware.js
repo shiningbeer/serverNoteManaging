@@ -5,7 +5,7 @@ const myMiddleWare = {
   verifyToken: (req, res, next) => {
     // the myMiddleWare always run twice out of no reason, one of these not taking my data, so i omiss one of these.
     if (req.get('access-control-request-method') == null) {
-      logger.debug(req.originalUrl + ' has been accessed by %s', req.ip)
+      logger.info('【访问】:【路径%s】【IP%s】',req.originalUrl,req.ip)
       if (req.originalUrl != '/user/gettoken') {
         var token = req.get('token')
         let tokenContainedInfo

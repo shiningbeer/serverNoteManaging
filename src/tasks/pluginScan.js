@@ -5,4 +5,4 @@ const pluginScan = {
 }
 module.exports = {
     pluginScan
-}
+} 

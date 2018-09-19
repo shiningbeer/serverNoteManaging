@@ -68,6 +68,7 @@ const dispatch = async () => {
         var result = await sdao.insert('nodeTask', newNodeTask)
         //在进度表中设置这些ip分配给了这个节点
         for (var ipr of iprList) {
+          
           await sdao.update('progress--' + task._id.toString(), { _id: ipr._id }, { node: node._id })
         }
         logger.info('【分配】:【任务%s】【节点%s】【子任务%s】', task.name, node.name, result.insertedId)

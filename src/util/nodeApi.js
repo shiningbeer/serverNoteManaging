@@ -51,6 +51,10 @@ var task = {
         postJsonWithTimeout(url_base + '/task/syncProgress', token, param, timeout, callback)
     },
 
+    getResults: (url_base, token, taskId, skip, limit, callback) => {
+        var param = { taskId, skip, limit }
+        postJson(url_base + '/task/getResults', token, param, callback)
+    }
 }
 
 var pulse = {
@@ -58,12 +62,6 @@ var pulse = {
         var param = {}
         postJson(url_base + '/pulse', token, param, callback)
     },
-}
-var results = {
-    get: (url_base, token, taskId, skip, limit, callback) => {
-        var param = { taskId, skip, limit }
-        postJson(url_base + '/results/get', token, param, callback)
-    }
 }
 
 // var plugin={

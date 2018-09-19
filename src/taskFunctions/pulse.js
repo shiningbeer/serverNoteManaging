@@ -25,14 +25,14 @@ const pulseOnLine = async () => {
 
                 logger.warn("【心跳】:【节点%s】【失败%s次】", name, nodeConnectFailTime[_id])
                 if (nodeConnectFailTime[_id] == 3) {
-                    logger.warn("【pulse】to node【%s】:node regarded as off-line!", name)
+                    logger.warn("【心跳】:【节点%s】【不在线！】", name)
                     brokenNodes.push(_id.toString())
                     nodeConnectFailTime[_id] = 0
 
                 }
             }
             else {
-                logger.debug("【pulse】to node【%s】:node is online!", name)
+                logger.debug("【心跳】:【节点%s】【在线】", name)
 
             }
         })
@@ -52,7 +52,7 @@ const pulseOffLine = async () => {
 
                 // if (nodeConnectFailTime[node._id]==null)
                 //   nodeConnectFailTime[node._id]=0
-                logger.info("【pulse】to node【%s】: node back on line!", name)
+                logger.warn("【心跳】:【节点%s】【回归】", name)
                 var index = brokenNodes.indexOf(_id.toString())
                 // console.log(index)
                 if (index != -1)
@@ -61,7 +61,7 @@ const pulseOffLine = async () => {
 
             }
             else
-                logger.debug("【pulse】to node【%s】: node remain off-line!", name)
+                logger.debug("【心跳】:【节点%s】【继续不在线！】", name)
 
         })
     }

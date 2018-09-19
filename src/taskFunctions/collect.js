@@ -4,7 +4,8 @@ const collectZmap = async () => {
 
     var ongoingTasks = await sdao.find('task', { started: true, complete: false, paused: false })
     for (var task of ongoingTasks) {
-      let totalProgress = 0//totalprogress should be the complete count the iprange of the progress table, plus sum of the progress of ongoing nodetasks
+      //总进度应当为进度表中完成的数字，加上正在进行任务的进度和
+      let totalProgress = 0
       let totalGoWrong = false
       var nodetasks = await sdao.find('nodeTask', { taskId: task._id.toString(), received: true, complete: false, deleted: false })
   
@@ -15,13 +16,12 @@ const collectZmap = async () => {
         if (goWrong)
           totalGoWrong = true
       }
-      //after converging the nodetasks, get complete count of the progress table
       var completeCount =  await sdao.getCount('progress--' + task._id.toString(), { complete: true })
       var totalcount =  await sdao.getCount('progress--' + task._id.toString(), {})
   
-      //the two equals mean the task is complete
+      //如果总进度与总数相等，则说明任务完成
       if (completeCount == totalcount) {
-        logger.warn("【TotalComplete!】--【%s】(%s)!", task.name, task._id)
+        logger.warn("【任务完成！】:【任务%s】【阶段%s】", task.name, task.stage)
         await sdao.update('task', { _id: task._id }, { complete: true, progress: totalcount })
       }
       else {

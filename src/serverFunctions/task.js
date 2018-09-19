@@ -80,7 +80,23 @@ const task = {
     res.json(result)
   },
 
-  nodeTaskResult: async (req, res) => { },
+  getResult: async (req, res) => {
+    var id = req.body.id
+    if (id == null)
+      return res.sendStatus(415)
+    let task = await sdao.findone('task', { _id: id })
+    let result = []
+    if (task.stage == 'zmap') {
+      re = await sdao.findone('zmapResults', { _id: id })
+      result = re.results
+    }
+    if (task.stage == 'plugin') {
+      re = await sdao.findone('pluginResults', { _id: id })
+      result = re.results
+
+    }
+    res.json(result)
+  },
 
 }
 module.exports = {

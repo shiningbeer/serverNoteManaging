@@ -16,8 +16,10 @@ const getZmapResults = async () => {
         //找出该任务一条已经结束、但结果数和已经收到结果数不一致的子任务
         const nodetask = await sdao.findone('nodeTask', { taskId, complete: true, $where: "this.resultCount>this.resultReceived" })
         //如果没有，说明已发布子任务的结果已经全部传回，再加上如果这个任务已经完成，可以断定该任务的结果全部收到
-        if (nodetask.length == null && task.complete == true) {
-            taskFunc.markTaskResultCollected(taskStage, taskId, taskName)
+        if (nodetask == null) {
+            if(task.complete == true){
+                taskFunc.markTaskResultCollected(taskStage, taskId, taskName)
+            }
             continue
         }
         //将这一条子任务的结果取回1000条
@@ -31,10 +33,10 @@ const getZmapResults = async () => {
         if (brokenNodes.includes(_id.toString()))
             continue
         //访问节点，取回结果
-        nodeApi.results.get(url, token, nodetaskid, resultReceived, 1000, async (code, body) => {
+        nodeApi.task.getResults(url, token, nodetaskid, resultReceived, 1000, async (code, body) => {
             if (code == 200) {
                 let nowRC = resultReceived + body.length
-                logger.info('【result】from node 【%s】:s%/s%, nodetask【%s】of task【%s】', name, nowRC, resultCount, nodetaskid, taskName)
+                logger.info('【取得结果】:【任务%s】【节点%s】【子任务%s】【进度%s/%s】',taskName, name,nodetaskid, nowRC, resultCount)
                 await sdao.update('nodeTask', { _id: nodetaskid }, { resultReceived: nowRC })
                 for (var r of body) {
                     taskFunc.recordResult(taskStage, taskId, r)
