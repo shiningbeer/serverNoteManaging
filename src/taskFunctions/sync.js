@@ -137,9 +137,9 @@ const syncProgressFromNode = async () => {
         //将任务标注为删除，留待deleteMarked程序处理
         sdao.update('nodeTask', { _id }, { deleted: true })
         if (brokenNodes.includes(nodeId.toString()))
-          logger.warn('【撤回】:【任务%s】【节点%s】【子任务%s】【原因：节点不在线】!', taskName, name, _id.toString())
+          logger.warn('【撤回】:【任务%s】【节点%s】【子任务%s】【原因：节点不在线】!', taskName, t_node.name, _id.toString())
         else
-          logger.warn('【撤回】:【任务%s】【节点%s】【子任务%s】【原因：节点不存在】!', taskName, name, _id.toString())
+          logger.warn('【撤回】:【任务%s】【子任务%s】【原因：节点不存在】!', taskName, _id.toString())
 
         continue
       }

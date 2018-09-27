@@ -6,10 +6,9 @@ var elasticsearch = require('elasticsearch');
 const task = {
   add: async (req, res) => {
     var newTask = req.body.newTask
-    let user = req.tokenContainedInfo.user
     if (newTask == null)
       return res.sendStatus(415)
-    newTask.type = 'zmapPluginScan'
+    console.log(newTask)
     let taskFunc = taskSelector(newTask.type)
     newTask.user = req.tokenContainedInfo.user
     await taskFunc.add(newTask)
