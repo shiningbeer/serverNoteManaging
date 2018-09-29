@@ -86,7 +86,7 @@ const zmapPluginScan = {
   markTaskResultCollected: async (stage, taskId, taskName, ) => {
     //确定结果已经完全取回时，如果是plugin阶段，直接标注即可
     if (stage == 'plugin') {
-      logger.info('【结果全部取回】:【任务%s】【阶段：%s】', taskName, stage)
+      logger.info('[result complete]:[Task%s][stage:%s]', taskName, stage)
       await sdao.update('task', { _id: taskId }, { resultCollected: true })
       await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
 
@@ -94,7 +94,7 @@ const zmapPluginScan = {
     //如果是zmap阶段，则需要以zmap阶段的结果作为目标，使任务继续完成plugin阶段的任务，因此需要在这里把任务改装成plugin
     else {
       //首先，标注zmap阶段完成
-      logger.info('【结果全部取回】:【任务%s】【阶段：%s】', taskName, stage)
+      logger.info('[result complete]:[Task%s][stage:%s]', taskName, stage)
       await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
       //以Zmap阶段的结果来重建进度表
       await sdao.dropCol('progress--' + taskId.toString())

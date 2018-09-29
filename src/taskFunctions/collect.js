@@ -21,7 +21,7 @@ const collectZmap = async () => {
   
       //如果总进度与总数相等，则说明任务完成
       if (completeCount == totalcount) {
-        logger.warn("【任务完成！】:【任务%s】【阶段%s】", task.name, task.stage)
+        logger.warn("[task complete]:[task %s][stage %s]", task.name, task.stage)
         await sdao.update('task', { _id: task._id }, { complete: true, progress: totalcount })
       }
       else {

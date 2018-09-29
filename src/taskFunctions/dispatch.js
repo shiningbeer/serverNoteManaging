@@ -24,6 +24,9 @@ const dispatch = async () => {
         continue
       //判断是否应该向该节点分发子任务的依据是，不存在该节点未完成的子任务
       var re = await sdao.findone('nodeTask', { nodeId: node._id.toString(), complete: false })
+      var ntc=await sdao.getCount('nodeTask', { nodeId: node._id.toString(), complete: false })
+      if(ntc>1)
+        logger.fatal('[wrong]:[Task %s][node %s][uncomplete task greater than 1]', task.name, node.name)
 
       //这里的任务都是未结束的，如果这个节点的子任务全完成了，那么应该向它派发新的子任务 
       if (re == null) {
@@ -48,6 +51,8 @@ const dispatch = async () => {
           ipRangeId: rangeId,
           resultCount: 0,
           resultReceived: 0,
+          sending:false,
+          resultGetting:false,
           //任务基本信息
           ipRange: range,
           ipTotal: range.length,
@@ -69,9 +74,9 @@ const dispatch = async () => {
         //在进度表中设置这些ip分配给了这个节点
         for (var ipr of iprList) {
           
-          await sdao.update('progress--' + task._id.toString(), { _id: ipr._id }, { node: node._id })
+          sdao.update('progress--' + task._id.toString(), { _id: ipr._id }, { node: node._id })
         }
-        logger.info('【分配】:【任务%s】【节点%s】【子任务%s】', task.name, node.name, result.insertedId)
+        logger.info('[dispatch]:[Task %s][node %s][subtask %s]', task.name, node.name, result.insertedId)
       }
     }
 
