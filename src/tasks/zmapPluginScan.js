@@ -110,10 +110,10 @@ const zmapPluginScan = {
   recordResult: async (stage, taskId, result) => {
     //根据任务阶段不同，异步插入结果
     if (stage == 'plugin') {
-      sdao.push('pluginResults', { _id: taskId }, { results: result })
+      sdao.pushArray('pluginResults', { _id: taskId }, { results: result })
     }
     else {
-      sdao.push('zmapResults', { _id: taskId }, { results: result })
+      sdao.pushArray('zmapResults', { _id: taskId }, { results: result })
     }
   },
 

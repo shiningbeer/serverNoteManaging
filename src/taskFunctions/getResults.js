@@ -40,11 +40,9 @@ const getZmapResults = async () => {
             await sdao.update('nodeTask', { _id: nodetaskid }, { resultGetting: false })
             if (code == 200) {
                 let nowRC = resultReceived + body.length
-                logger.info('[result]:[Task:%s][node%s][subtask%s][progress %s/%s]', taskName, name, nodetaskid, nowRC, resultCount)
+                logger.info('[result]:[Task %s][node %s][subtask%s][progress %s/%s]', taskName, name, nodetaskid, nowRC, resultCount)
                 await sdao.update('nodeTask', { _id: nodetaskid }, { resultReceived: nowRC })
-                for (var r of body) {
-                    taskFunc.recordResult(taskStage, taskId, r)
-                }
+                taskFunc.recordResult(taskStage, taskId, body)
             }
         })
     }

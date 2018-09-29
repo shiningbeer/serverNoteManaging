@@ -22,9 +22,9 @@ const sendToNode = async () => {
       //将任务标注为删除，留待deleteMarked程序处理
       sdao.update('nodeTask', { _id }, { deleted: true })
       if (brokenNodes.includes(nodeId.toString()))
-        logger.warn('[cancel]:[Task%s][node%s][subtask%s][reason:node off-line]', taskName, name, _id.toString())
+        logger.warn('[cancel]:[Task %s][node %s][subtask%s][reason:node off-line]', taskName, name, _id.toString())
       else
-        logger.warn('[cancel]:[Task%s][node%s][subtask%s]【reson:node null】!', taskName, name, _id.toString())
+        logger.warn('[cancel]:[Tas %s][node %s][subtask%s]【reson:node null】!', taskName, name, _id.toString())
 
       continue
     }
@@ -46,11 +46,11 @@ const sendToNode = async () => {
       await sdao.update('nodeTask', { _id }, { sending: false })
       //如果接收成功，则更新子任务为已接收，否则什么都不做，留待下一次对其操作 
       if (code == 200) {
-        logger.info('[send sucess]:[Task%s][node%s][subtask%s]!', taskName, name, _id.toString())
+        logger.info('[send sucess]:[Tas k%s][node %s][subtask%s]!', taskName, name, _id.toString())
         await sdao.update('nodeTask', { _id }, { received: true, needToSync: false })
       }
       else
-        logger.warn('[send fail]:[Task%s][node%s][subtask%s]!', taskName, name, _id.toString())
+        logger.warn('[send fail]:[Task %s][node %s][subtask%s]!', taskName, name, _id.toString())
 
 
     })
@@ -77,7 +77,7 @@ const deleteMarked = async () => {
     //如果任务还没接收到，所以没必要访问节点去通知，可以直接删除
     if (!nodetask.received) {
       await sdao.delete('nodeTask', { _id })
-      logger.warn('[delete]:[Task%s][node%s][subtask%s]!', taskName, name, _id.toString())
+      logger.warn('[delete]:[Task %s][node %s][subtask %s]!', taskName, name, _id.toString())
       continue
     }
     //如果节点不在线，则暂不处理
@@ -88,7 +88,7 @@ const deleteMarked = async () => {
     nodeApi.task.delete(t_node.url, t_node.token, _id, async (code, body) => {
       //如果返回成功，则更新表，将其删除，否则留待下次处理，什么也不做 
       if (code == 200) {
-        logger.warn('[delete]:[Task%s][node%s][subtask%s]!', taskName, name, _id.toString())
+        logger.warn('[delete]:[Task %s][node %s][subtask %s]!', taskName, name, _id.toString())
         await sdao.delete('nodeTask', { _id: _id })
       }
     })
@@ -114,7 +114,7 @@ const syncCommandToNode = async () => {
     nodeApi.task.syncCommand(url, token, _id.toString(), paused, async (code, body) => {
       // 如果返回正确，则更新数据库，标注其已同步，否则不处理。
       if (code == 200) {
-        logger.warn('[pause/resume]:[Task%s][node%s][subtask%s]!', taskName, name, _id.toString())
+        logger.info('[pause/resume]:[Task %s][node %s][subtask %s]!', taskName, name, _id.toString())
         await sdao.update('nodeTask', { _id: _id }, { needToSync: false })
       }
     })
@@ -141,9 +141,9 @@ const syncProgressFromNode = async () => {
         //将任务标注为删除，留待deleteMarked程序处理
         sdao.update('nodeTask', { _id }, { deleted: true })
         if (brokenNodes.includes(nodeId.toString()))
-          logger.warn('[cancel]:[Task%s][node%s][subtask%s][reason:node off-lime]', taskName, t_node.name, _id.toString())
+          logger.warn('[cancel]:[Task %s][node %s][subtask %s][reason:node off-lime]', taskName, t_node.name, _id.toString())
         else
-          logger.warn('[cancel]:[Task%s][subtask%s][reason:node null]', taskName, _id.toString())
+          logger.warn('[cancel]:[Task %s][subtask %s][reason:node null]', taskName, _id.toString())
 
         continue
       }
@@ -159,14 +159,14 @@ const syncProgressFromNode = async () => {
             running,
             resultCount,
           } = body
-          logger.warn('[sync progress]:[Task%s][node%s][subtask%s]【progress %s/%s】', taskName, name, _id, progress, ipTotal)
+          logger.info('[sync progress]:[Task %s][node %s][subtask %s]【progress %s/%s】', taskName, name, _id, progress, ipTotal)
 
 
           if (complete) {
             for (var ip_id of ipRangeId) {
               await sdao.update('progress--' + taskId.toString(), { _id: ip_id }, { complete: true })
             }
-            logger.warn('[subtask complete]:[Task%s][node%s][subtask%s]', taskName, name, _id)
+            logger.info('[subtask complete]:[Task%s][node%s][subtask%s]', taskName, name, _id)
           }
           //将进度更新至nodeTask表
           await sdao.update('nodeTask', { _id: _id }, { progress, goWrong, complete, running, resultCount })

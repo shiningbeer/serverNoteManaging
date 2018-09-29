@@ -23,7 +23,7 @@ const pulseOnLine = async () => {
                 else
                     nodeConnectFailTime[_id] = nodeConnectFailTime[_id] + 1
 
-                logger.warn("[pulse]:[node%s][fail times:%s]", name, nodeConnectFailTime[_id])
+                logger.warn("[pulse]:[node %s][fail times:%s]", name, nodeConnectFailTime[_id])
                 if (nodeConnectFailTime[_id] == 30) {
                     logger.warn("[pulse]:[node%s][off-line]", name)
                     brokenNodes.push(_id.toString())
@@ -34,7 +34,7 @@ const pulseOnLine = async () => {
             else {
 
                 nodeConnectFailTime[_id] = 0
-                logger.debug("[pulse]:[node%s][online]", name)
+                logger.debug("[pulse]:[node %s][online]", name)
 
             }
         })
@@ -63,7 +63,7 @@ const pulseOffLine = async () => {
 
             }
             else
-                logger.debug("[pulse]:[node%s][remain off-line]", name)
+                logger.debug("[pulse]:[node %s][remain off-line]", name)
 
         })
     }
