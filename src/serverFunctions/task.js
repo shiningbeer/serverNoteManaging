@@ -8,9 +8,9 @@ const task = {
     var newTask = req.body.newTask
     if (newTask == null)
       return res.sendStatus(415)
-    console.log(newTask)
-    let taskFunc = taskSelector(newTask.type)
+    let taskFunc = taskSelector('zmapPlugin')
     newTask.user = req.tokenContainedInfo.user
+    newTask.type='zmapPlugin'
     await taskFunc.add(newTask)
     res.json('ok')
   },

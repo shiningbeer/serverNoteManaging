@@ -5,11 +5,11 @@ const { zmapPluginScan } = require('./zmapPluginScan')
 //在java中可用接口实现，在js中只能暂且用函数来实现
 const taskSelector = (type) => {
     switch (type) {
-        case 'zmapScan':
+        case 'zmap':
             return zmapScan
-        case 'pluginScan':
+        case 'plugin':
             return pluginScan
-        case 'zmapPluginScan':
+        case 'zmapPlugin':
             return zmapPluginScan
         default:
             return null
