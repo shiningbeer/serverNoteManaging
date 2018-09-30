@@ -1,6 +1,6 @@
 var { sdao } = require('../util/dao')
 var { logger } = require('../util/mylogger')
-const collectZmap = async () => {
+const collect = async () => {
 
     var ongoingTasks = await sdao.find('task', { started: true, complete: false, paused: false })
     for (var task of ongoingTasks) {
@@ -31,10 +31,7 @@ const collectZmap = async () => {
   
     }
   }
-  const collect=()=>{
-      collectZmap()
-      //other collect
-  }
+
   const runCollect=()=>{
       setInterval(collect,1000)
   }

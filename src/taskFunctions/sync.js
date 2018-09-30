@@ -181,8 +181,8 @@ const syncProgressFromNode = async () => {
 
 
 
-const runSync = () => {
-
+const runSync = async () => {
+  await sdao.update('nodeTask', {sending : true }, { sending: false })
   setInterval(() => {
     sendToNode()
     syncCommandToNode()

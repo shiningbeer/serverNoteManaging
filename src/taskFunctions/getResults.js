@@ -3,7 +3,7 @@ var nodeApi = require('../util/nodeApi')
 var { logger } = require('../util/mylogger')
 var { brokenNodes } = require('./pulse')
 const { taskSelector } = require('../tasks/selector')
-const getZmapResults = async () => {
+const getResults = async () => {
     //取出数据库中所有结果未接受完毕的任务，循环处理
     const tasks = await sdao.find('task', { resultCollected: false })
     for (var task of tasks) {
@@ -47,11 +47,9 @@ const getZmapResults = async () => {
         })
     }
 }
-const getResults = () => {
-    getZmapResults()
-    //other getresult
-}
-const runGetResults = () => {
+
+const runGetResults = async () => {
+    await sdao.update('nodeTask',{resultGetting:true},{resultGetting:false})
     setInterval(getResults, 2500)
 }
 module.exports = {
