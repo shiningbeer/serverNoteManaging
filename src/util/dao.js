@@ -60,19 +60,6 @@ const sdao = {
         });
         return re
     },
-    pushArray:async (col, where, array) => {
-        if (where._id != null)
-            where._id = ObjectId(where._id)
-        var updatestr = {
-            $push: {$each:array}
-        }
-        var re = await new Promise((resolve, reject) => {
-            dao.collection(col).updateMany(where, updatestr, (err, rest) => {
-                err ? resolve(null) : resolve(rest)
-            })
-        });
-        return re
-    },
     delete: async (col, where) => {
         if (where._id != null)
             where._id = ObjectId(where._id)

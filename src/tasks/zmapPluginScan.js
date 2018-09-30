@@ -27,6 +27,7 @@ const zmapPluginScan = {
         goWrong: false,
         paused: true,
         nodes: [],
+        ptCreated:false,
 
         //这些属性在zmap阶段给予zmap的属性，在zmap阶段完成之后，转而给予plugin扫描的属性
         targetList,
@@ -57,7 +58,8 @@ const zmapPluginScan = {
       delete newResut.port
       newResut.plugin = plugin.name
       await sdao.insert('pluginResults', newResut)
-      //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成
+      //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   
+      logger.info('[creating progress table]:[Task %s][stage %s]', realTaskName, 'zmap')
       let allIpRange = []
       for (var target of targetList) {
         let iprange = await sdao.findone('target', { _id: target._id })
@@ -68,6 +70,8 @@ const zmapPluginScan = {
         var ipR = { ipr, complete: false, node: null }
         await sdao.insert('progress--' + rest.insertedId.toString(), ipR)
       }
+      await sdao.update('task', { _id: rest.insertedId}, { ptCreated:true})
+      logger.info('[progress table created]:[Task %s][stage %s]', realTaskName, 'zmap')
     }
   },
   addSpecialFieldWhenDispatchNodeTask: (task, nodetask) => {
@@ -96,24 +100,27 @@ const zmapPluginScan = {
       //首先，标注zmap阶段完成
       logger.info('[result complete]:[Task%s][stage:%s]', taskName, stage)
       await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
+      let zmapResult = await sdao.findone('zmapResults', { _id: taskId })
+      //给任务属性重新赋值，标注为plugin阶段
+      await sdao.update('task', { _id: taskId }, { ptCreated:false,toES:false,complete: false, stage: 'plugin', progress: 0, targetList: taskId, total: zmapResult.results.length })
+      logger.info('[creating progress table]:[Task %s][stage %s]', taskName, stage)
       //以Zmap阶段的结果来重建进度表
       await sdao.dropCol('progress--' + taskId.toString())
-      let zmapResult = await sdao.findone('zmapResults', { _id: taskId })
       for (var r of zmapResult.results) {
         var ipR = { ipr: r, complete: false, node: null }
         await sdao.insert('progress--' + taskId.toString(), ipR)
       }
-      //给任务属性重新赋值，标注为plugin阶段
-      await sdao.update('task', { _id: taskId }, { toES:false,complete: false, stage: 'plugin', progress: 0, targetList: taskId, total: zmapResult.results.length })
+      await sdao.update('task', { _id: taskId }, { ptCreated:true})
+      logger.info('[progress table created]:[Task %s][stage %s]', taskName, stage)
     }
   },
   recordResult: async (stage, taskId, result) => {
     //根据任务阶段不同，异步插入结果
     if (stage == 'plugin') {
-      sdao.pushArray('pluginResults', { _id: taskId }, { results: result })
+      sdao.push('pluginResults', { _id: taskId }, { results: {$eash:result} })
     }
     else {
-      sdao.pushArray('zmapResults', { _id: taskId }, { results: result })
+      sdao.push('zmapResults', { _id: taskId }, { results: {$eash:result} })
     }
   },
 

@@ -7,7 +7,7 @@ var { taskSelector } = require('../tasks/selector')
 //它将保证，nodetask表中，每个任务的每一个节点，只有一个子任务是未完成的，或者没有（任务快结束，剩余ip有够每个节点都分配）
 const dispatch = async () => {
   //先排出所有符合分配节点任务的任务，已开始，未结束，没暂停
-  var unFinishedTasks = await sdao.find('task', { started: true, complete: false, paused: false })
+  var unFinishedTasks = await sdao.find('task', { started: true, complete: false, paused: false,ptCreated:true})
   for (var task of unFinishedTasks) {
     //假如该任务的进度表已经完全分配了，那该任务无法再分配任务
     var notDispatchedIpCount = await sdao.getCount('progress--' + task._id.toString(), { node: null })
