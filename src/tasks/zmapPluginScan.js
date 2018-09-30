@@ -85,7 +85,7 @@ const zmapPluginScan = {
     if (stage == 'zmap')
       return 10
     else
-      return 200
+      return 2000
   },
   markTaskResultCollected: async (stage, taskId, taskName, ) => {
     //确定结果已经完全取回时，如果是plugin阶段，直接标注即可
@@ -117,10 +117,10 @@ const zmapPluginScan = {
   recordResult: async (stage, taskId, result) => {
     //根据任务阶段不同，异步插入结果
     if (stage == 'plugin') {
-      sdao.push('pluginResults', { _id: taskId }, { results: {$eash:result} })
+      sdao.push('pluginResults', { _id: taskId }, { results: {$each:result} })
     }
     else {
-      sdao.push('zmapResults', { _id: taskId }, { results: {$eash:result} })
+      sdao.push('zmapResults', { _id: taskId }, { results: {$each:result} })
     }
   },
 
