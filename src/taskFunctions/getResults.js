@@ -32,8 +32,13 @@ const getResults = async () => {
         if (nodetask.resultGetting == true)
             continue
         //将这一条子任务的结果取回1000条
-        const { _id,resultReceived, resultCount } = nodetask
+        const { _id,resultReceived, resultCount,taskId } = nodetask
         const { url, token, name} = thenode
+        //获取任务信息
+        const task=await sdao.findone('task',{_id:taskId})
+        const taskId = task._id.toString()
+        const taskName = task.name
+        const taskFunc = taskSelector(task.type)
         await sdao.update('nodeTask', { _id}, { resultGetting: true })
         //访问节点，取回结果
         nodeApi.task.getResults(url, token, _id.toString(), resultReceived, 1000, async (code, body) => {
