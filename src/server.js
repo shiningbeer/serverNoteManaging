@@ -46,8 +46,6 @@ app.post('/task/getdetail', task.getDetail)
 app.post('/task/getResult', task.getResult)
 app.post('/task/resultToES', task.resultToES)
 
-
-
 //node
 app.post('/node/add', node.add)
 app.post('/node/delete', node.delete)

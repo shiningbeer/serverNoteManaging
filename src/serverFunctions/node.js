@@ -8,6 +8,7 @@ const node = {
       user: req.tokenContainedInfo.user,
       ipLeft: 0,
       createdAt: Date.now(),
+      online:true
     }
     if (newNode == null)
       return res.sendStatus(415)

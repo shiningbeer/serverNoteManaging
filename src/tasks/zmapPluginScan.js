@@ -114,13 +114,16 @@ const zmapPluginScan = {
       logger.info('[progress table created]:[Task %s][stage %s]', taskName, stage)
     }
   },
-  recordResult: async (stage, taskId, result) => {
-    //根据任务阶段不同，异步插入结果
+  recordResult: async (stage, taskId, results) => {
+    //根据任务阶段不同，插入结果
     if (stage == 'plugin') {
-      sdao.push('pluginResults', { _id: taskId }, { results: {$each:result} })
+      for (var result of results){
+        await sdao.insert(taskId+'--result', result)
+      }
+      
     }
     else {
-      sdao.push('zmapResults', { _id: taskId }, { results: {$each:result} })
+      sdao.push('zmapResults', { _id: taskId }, { results: {$each:results} })
     }
   },
 

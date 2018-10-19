@@ -1,8 +1,6 @@
 var { sdao } = require('../util/dao')
 var nodeApi = require('../util/nodeApi')
 var { logger } = require('../util/mylogger')
-var { brokenNodes } = require('./pulse')
-
 
 //本程序需要定时执行，每次执行时，将nodetask表的子任务发送给节点
 const sendToNode = async () => {
@@ -12,16 +10,16 @@ const sendToNode = async () => {
     const { _id, nodeId, port, ipRange, ipRangeId, taskId, taskName, type, plugin } = nodetask
     //获取节点信息
     const t_node = await sdao.findone('node', { _id: nodeId })
-
+    console.log(t_node)
     //如果节点不存在，或者节点不在线，则撤回该任务
-    if (t_node == null || brokenNodes.includes(nodeId.toString())) {
+    if (t_node == null || !t_node.online) {
       //将其所带的ip在进度表中重置，异步（没有带await）
       for (var ip_id of ipRangeId) {
         sdao.update('progress--' + taskId, { _id: ip_id }, { node: null })
       }
       //将任务标注为删除，留待deleteMarked程序处理
       sdao.update('nodeTask', { _id }, { deleted: true })
-      if (brokenNodes.includes(nodeId.toString()))
+      if (!t_node.online)
         logger.warn('[cancel]:[Task %s][node %s][subtask%s][reason:node off-line]', taskName, name, _id.toString())
       else
         logger.warn('[cancel]:[Tas %s][node %s][subtask%s]【reson:node null】!', taskName, name, _id.toString())
@@ -73,7 +71,7 @@ const deleteMarked = async () => {
       await sdao.delete('nodeTask', { _id: _id })
       continue
     }
-    const name = t_node.name
+    const {name,online} = t_node
     //如果任务还没接收到，所以没必要访问节点去通知，可以直接删除
     if (!nodetask.received) {
       await sdao.delete('nodeTask', { _id })
@@ -81,7 +79,7 @@ const deleteMarked = async () => {
       continue
     }
     //如果节点不在线，则暂不处理
-    if (brokenNodes.includes(nodeId.toString())) {
+    if (!online) {
       continue
     }
     //访问节点，通知节点删除任务
@@ -100,16 +98,16 @@ const syncCommandToNode = async () => {
   var needToSyncNodeTasks = await sdao.find('nodeTask', { needToSync: true, complete: false, deleted: false })
   for (var nodetask of needToSyncNodeTasks) {
     const { _id, nodeId, paused, taskName } = nodetask
-    //如果节点不在线，则不处理
-    if (brokenNodes.includes(nodeId.toString())) {
-      continue
-    }
     //取出节点
     const t_node = await sdao.findone('node', { _id: nodeId })
     //如果节点不存在，不处理
     if (t_node == null)
       continue
-    const { url, token, name } = t_node
+    const { url, token, name,online } = t_node
+    //如果节点不在线，则不处理
+    if (!online) {
+      continue
+    }
     //访问节点以同步paused属性
     nodeApi.task.syncCommand(url, token, _id.toString(), paused, async (code, body) => {
       // 如果返回正确，则更新数据库，标注其已同步，否则不处理。
@@ -133,14 +131,14 @@ const syncProgressFromNode = async () => {
       //取出节点
       const t_node = await sdao.findone('node', { _id: nodeId })
       //如果节点不存在，或者节点不在线，则撤回该任务
-      if (t_node == null || brokenNodes.includes(nodeId.toString())) {
+      if (t_node == null || !t_node.online) {
         //将其所带的ip在进度表中重置，异步（没有带await）
         for (var ip_id of ipRangeId) {
           sdao.update('progress--' + taskId, { _id: ip_id }, { node: null })
         }
         //将任务标注为删除，留待deleteMarked程序处理
         sdao.update('nodeTask', { _id }, { deleted: true })
-        if (brokenNodes.includes(nodeId.toString()))
+        if (!t_node.online)
           logger.warn('[cancel]:[Task %s][node %s][subtask %s][reason:node off-lime]', taskName, t_node.name, _id.toString())
         else
           logger.warn('[cancel]:[Task %s][subtask %s][reason:node null]', taskName, _id.toString())

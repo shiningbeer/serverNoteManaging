@@ -1,13 +1,12 @@
 var { sdao } = require('../util/dao')
 var { logger } = require('../util/mylogger')
-var { brokenNodes } = require('./pulse')
 var { taskSelector } = require('../tasks/selector')
 //这是需要定时执行的程序，每次执行时为数据库中每一个未完成的任务根据条件创建节点子任务
 //经过本程序的处理，针对每一个未完成的任务，会在nodetask表中为其每一个节点创建一个子任务，或者不创建（如果已有并且未完成），
 //它将保证，nodetask表中，每个任务的每一个节点，只有一个子任务是未完成的，或者没有（任务快结束，剩余ip有够每个节点都分配）
 const dispatch = async () => {
   //先排出所有符合分配节点任务的任务，已开始，未结束，没暂停
-  var unFinishedTasks = await sdao.find('task', { started: true, complete: false, paused: false,ptCreated:true})
+  var unFinishedTasks = await sdao.find('task', { started: true, complete: false, paused: false, ptCreated: true })
   for (var task of unFinishedTasks) {
     //假如该任务的进度表已经完全分配了，那该任务无法再分配任务
     var notDispatchedIpCount = await sdao.getCount('progress--' + task._id.toString(), { node: null })
@@ -20,12 +19,13 @@ const dispatch = async () => {
     //遍历其绑定的节点
     for (var node of nodes) {
       //如果节点是断开的，则无视
-      if (brokenNodes.includes(node._id.toString()))
+      var nodeinfo = await sdao.findone('node', { _id: node._id })
+      if (!nodeinfo.online)
         continue
       //判断是否应该向该节点分发子任务的依据是，不存在该节点未完成的子任务
       var re = await sdao.findone('nodeTask', { nodeId: node._id.toString(), complete: false })
-      var ntc=await sdao.getCount('nodeTask', { nodeId: node._id.toString(), complete: false })
-      if(ntc>1)
+      var ntc = await sdao.getCount('nodeTask', { nodeId: node._id.toString(), complete: false })
+      if (ntc > 1)
         logger.fatal('[wrong]:[Task %s][node %s][uncomplete task greater than 1]', task.name, node.name)
 
       //这里的任务都是未结束的，如果这个节点的子任务全完成了，那么应该向它派发新的子任务 
@@ -51,8 +51,8 @@ const dispatch = async () => {
           ipRangeId: rangeId,
           resultCount: 0,
           resultReceived: 0,
-          sending:false,
-          resultGetting:false,
+          sending: false,
+          resultGetting: false,
           //任务基本信息
           ipRange: range,
           ipTotal: range.length,
@@ -73,7 +73,7 @@ const dispatch = async () => {
         var result = await sdao.insert('nodeTask', newNodeTask)
         //在进度表中设置这些ip分配给了这个节点
         for (var ipr of iprList) {
-          
+
           sdao.update('progress--' + task._id.toString(), { _id: ipr._id }, { node: node._id })
         }
         logger.info('[dispatch]:[Task %s][node %s][subtask %s]', task.name, node.name, result.insertedId)
