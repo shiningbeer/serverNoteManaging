@@ -157,7 +157,7 @@ const syncProgressFromNode = async () => {
             running,
             resultCount,
           } = body
-          logger.info('[sync progress]:[Task %s][node %s][subtask %s]【progress %s/%s】', taskName, name, _id, progress, ipTotal)
+          logger.info('[sync progress]:[Task %s][node %s][subtask %s][progress %s/%s】', taskName, name, _id, progress, ipTotal)
 
 
           if (complete) {
@@ -170,6 +170,8 @@ const syncProgressFromNode = async () => {
           await sdao.update('nodeTask', { _id: _id }, { progress, goWrong, complete, running, resultCount })
 
         }
+        else
+          logger.info('[sync progress]:[FAILED!][Task %s][node %s][subtask %s]', taskName, name, _id)
 
       })
     }

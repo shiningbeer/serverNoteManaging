@@ -27,7 +27,6 @@ const dispatch = async () => {
       var ntc = await sdao.getCount('nodeTask', { nodeId: node._id.toString(), complete: false })
       if (ntc > 1)
         logger.fatal('[wrong]:[Task %s][node %s][uncomplete task greater than 1]', task.name, node.name)
-
       //这里的任务都是未结束的，如果这个节点的子任务全完成了，那么应该向它派发新的子任务 
       if (re == null) {
         //获取派发批次的量，zmap和plugin是不同的
