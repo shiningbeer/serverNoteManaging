@@ -31,6 +31,8 @@ const pulseOnLine = async () => {
             }
         })
     }
+    // const lalala=await sdao.findone('zmapResults',{_id:'5bdaa98273281045f9280c95'})
+    // console.log(lalala.results.length)
 }
 const pulseOffLine = async () => {
     const nodes = await sdao.find('node', {online:false})

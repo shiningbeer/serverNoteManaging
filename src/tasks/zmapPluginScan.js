@@ -87,6 +87,12 @@ const zmapPluginScan = {
     else
       return 2000
   },
+  getResultBatchCount:(stage)=>{
+    if (stage == 'zmap')
+      return 2000
+    else
+      return 200
+  },
   markTaskResultCollected: async (stage, taskId, taskName, ) => {
     //确定结果已经完全取回时，如果是plugin阶段，直接标注即可
     if (stage == 'plugin') {

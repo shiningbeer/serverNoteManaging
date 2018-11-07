@@ -29,14 +29,13 @@ const getResults = async () => {
         if(accessingNode[nodeId])
             continue
         //找到一个该节点的子任务，已经结束，但结果并没有完全传回
-        const nodetask = await sdao.findone('nodeTask', { resultGetting: false, $where: 'this.node._id=' + thenode._id.toString(), complete: true, $where: "this.resultCount>this.resultReceived" })
+        const nodetask = await sdao.findone('nodeTask', { resultGetting: false, complete: true, $where: "this.resultCount>this.resultReceived && this.nodeId=='"+nodeId.toString()+"'" })
         if (nodetask == null)
             continue
         if (nodetask.resultGetting == true)
             continue
         //将这一条子任务的结果取回1000条
         const { _id, resultReceived, resultCount, taskId } = nodetask
-        console.log(_id)
         //获取任务信息
         const task = await sdao.findone('task', { _id: taskId })
         const {name:taskName,stage:taskStage,type:taskType} =task
@@ -46,9 +45,9 @@ const getResults = async () => {
         if(accessingNode[nodeId]==null)
             accessingNode[nodeId]=true
         //访问节点，取回结果
-        nodeApi.task.getResults(url, token, _id, resultReceived, 200, async (code, body) => {
+        const batchCount=taskStage=='plugin'?200:2000
+        nodeApi.task.getResults(url, token, _id, resultReceived,batchCount, async (code, body) => {
             await sdao.update('nodeTask', { _id }, { resultGetting: false })
-            console.log(url,code,body)
             accessingNode[nodeId]=false
             if (code == 200) {
                 if (body.length == 0) {
