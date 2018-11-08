@@ -5,13 +5,14 @@ var elasticsearch = require('elasticsearch');
 
 const task = {
   add: async (req, res) => {
-    var newTask = req.body.newTask
-    if (newTask == null)
-      return res.sendStatus(415)
-    let taskFunc = taskSelector('zmapPlugin')
-    newTask.user = req.tokenContainedInfo.user
-    newTask.type='zmapPlugin'
-    await taskFunc.add(newTask)
+    // var newTask = req.body.newTask
+    // if (newTask == null)
+    //   return res.sendStatus(415)
+    // let taskFunc = taskSelector('zmapPlugin')
+    // newTask.user = req.tokenContainedInfo.user
+    // newTask.type='zmapPlugin'
+    // await taskFunc.add(newTask)
+    console.log(req.body.newTask)
     res.json('ok')
   },
   delete: async (req, res) => {
