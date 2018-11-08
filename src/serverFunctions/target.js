@@ -38,6 +38,15 @@ const target = {
     let result=await sdao.find('target', condition)
     res.json(result)
   },
+  getZmapResult: async (req, res) => {
+    var condition = req.body.condition
+    if (condition == null)
+      condition = {}
+    let result=await sdao.findField('zmapResults', {complete:true},{results:-1})
+    for(var r of result)
+      delete r.results
+    res.json(result)
+  }
 }
 module.exports = {
   target,

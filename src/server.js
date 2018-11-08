@@ -57,6 +57,7 @@ app.post('/target/add', target.add)
 app.post('/target/delete', target.delete)
 app.post('/target/update', target.update)
 app.post('/target/get', target.get)
+app.post('/target/getZmapResult', target.getZmapResult)
 
 //plugin
 app.post('/plugin/add', upload.single('file'), plugin.add)
