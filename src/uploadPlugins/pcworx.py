@@ -40,11 +40,11 @@ def getZeroTerminatedString(response,pos):
 			break
 	return end_pos, data
 #if __name__ == '__main__':
-def scan(ip):
+def scan(ip,port = 1962):
 
 	init_coms = a2b_hex("0101001a0000000078800003000c494245544830314e305f4d00")
 	
-	port = 1962
+	
 	
 	to_return={}
 

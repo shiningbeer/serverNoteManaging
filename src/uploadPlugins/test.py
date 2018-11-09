@@ -1,7 +1,9 @@
 
 from time import sleep
 
-def scan(ip):
-    sleep(2)
-    return ip
+def scan(ip,port=100):
+    sleep(60)
+    toreturn={}
+    toreturn['ip']=ip
+    return toreturn
 

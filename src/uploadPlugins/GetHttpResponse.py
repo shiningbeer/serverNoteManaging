@@ -36,10 +36,10 @@ def parsing(txt):
         title=''
     return title
 
-def scan(ip):
+def scan(ip,port = 80):
     protocol = 'http'
-    port = 80
     
+   
     dict_header = {}
     http_version = 'HTTP/1.0'   #http version default is 'HTTP/1.0'
     html_chardet = 'utf-8'      #the html chardet default is utf-8

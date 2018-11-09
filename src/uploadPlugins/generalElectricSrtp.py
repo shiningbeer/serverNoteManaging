@@ -19,14 +19,14 @@ BUFSIZE = 10240
 
 
 #if __name__ == '__main__':
-def scan(ip):
+def scan(ip,port = 18245):
 	string = "00"*56
 	#print string
 	#print len(string)
 	
 	packet_handshake = a2b_hex("00"*56)
 	
-	port = 18245
+	
 	
 	to_return={}
 	

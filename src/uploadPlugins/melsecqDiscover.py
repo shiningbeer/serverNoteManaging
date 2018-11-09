@@ -31,9 +31,9 @@ def getZeroTerminatedString(response,pos):
 	return end_pos, data
 
 #if __name__ == '__main__':
-def scan(ip):
+def scan(ip,port = 5007):
 	getcpuinfopack = a2b_hex("57000000001111070000ffff030000fe03000014001c080a080000000000000004" + "0101" + "010000000001")
-	port = 5007
+	
 	
 	to_return={}
 	#to_return["IP"] = ip

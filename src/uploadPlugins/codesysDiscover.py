@@ -35,13 +35,12 @@ def get_string(data):
 	return string
 
 #if __name__ == '__main__':
-def scan(ip):
+def scan(ip,port=1200):
 	#lile_query = dataSwitch("bbbb0100000001")
 	#bige_query = dataSwitch("bbbb0100000101")
 	lile_query = a2b_hex("bbbb0100000001")
 	bige_query = a2b_hex("bbbb0100000101")
 	
-	port = 1200
 	#to_return={}
 	#to_return["IP"] = ip
 	#to_return["Port"] = port
