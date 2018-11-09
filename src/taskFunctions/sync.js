@@ -10,7 +10,6 @@ const sendToNode = async () => {
     const { _id, nodeId, port, ipRange, ipRangeId, taskId, taskName, type, plugin } = nodetask
     //获取节点信息
     const t_node = await sdao.findone('node', { _id: nodeId })
-    console.log(t_node)
     //如果节点不存在，或者节点不在线，则撤回该任务
     if (t_node == null || !t_node.online) {
       //将其所带的ip在进度表中重置，异步（没有带await）
