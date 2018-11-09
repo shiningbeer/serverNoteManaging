@@ -1,4 +1,4 @@
-
+ 
 var { sdao } = require('../util/dao')
 var { logger } = require('../util/mylogger')
 //针对zmap及plugin合成任务的任务函数
@@ -55,9 +55,6 @@ const zmapPluginScan = {
         taskName: realTaskName
       }
       await sdao.insert('zmapResults', newResut)
-      delete newResut.port
-      newResut.plugin = plugin.name
-      await sdao.insert('pluginResults', newResut)
       //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   
       logger.info('[creating progress table]:[Task %s][stage %s]', realTaskName, 'zmap')
       let allIpRange = []
@@ -98,7 +95,6 @@ const zmapPluginScan = {
     if (stage == 'plugin') {
       logger.info('[result complete]:[Task%s][stage:%s]', taskName, stage)
       await sdao.update('task', { _id: taskId }, { resultCollected: true })
-      await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
 
     }
     //如果是zmap阶段，则需要以zmap阶段的结果作为目标，使任务继续完成plugin阶段的任务，因此需要在这里把任务改装成plugin

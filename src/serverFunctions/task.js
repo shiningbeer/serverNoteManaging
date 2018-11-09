@@ -5,14 +5,14 @@ var elasticsearch = require('elasticsearch');
 
 const task = {
   add: async (req, res) => {
-    // var newTask = req.body.newTask
-    // if (newTask == null)
-    //   return res.sendStatus(415)
-    // let taskFunc = taskSelector('zmapPlugin')
-    // newTask.user = req.tokenContainedInfo.user
-    // newTask.type='zmapPlugin'
-    // await taskFunc.add(newTask)
-    console.log(req.body.newTask)
+    var newTask = req.body.newTask
+    if (newTask == null)
+      return res.sendStatus(415)
+    const {type}=newTask
+    console.log(newTask)
+    let taskFunc = taskSelector(type)
+    newTask.user = req.tokenContainedInfo.user
+    await taskFunc.add(newTask)
     res.json('ok')
   },
   delete: async (req, res) => {
@@ -37,9 +37,9 @@ const task = {
     for (var node of nodeList) {
       await sdao.push('task', { _id: taskId }, { nodes: node })
     }
-    await sdao.update('results', { _id: taskId }, { startAt: Date.now() })
+    await sdao.update('zmapResults', { _id: taskId }, { startAt: Date.now() })
     //update the task
-    await sdao.update('task', { _id: taskId }, { started: true, paused: false })
+    await sdao.update('task', { _id: taskId }, { started: true, paused: false  ,startAt: Date.now() })
     res.json('ok')
   },
   pause: async (req, res) => {
