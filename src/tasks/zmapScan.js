@@ -33,6 +33,15 @@ const zmapScan = {
 
         }
         var rest = await sdao.insert('task', newTaskToAdd)
+        let newResut = {
+            _id: rest.insertedId,
+            port: newTaskToAdd.port,
+            complete: false,
+            startAt: null,
+            completeAt: null,
+            taskName: realTaskName
+        }
+        await sdao.insert('zmapResults', newResut)
 
         //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   
         logger.info('[creating progress table]:[Task %s][%s]', name, type)
@@ -70,7 +79,9 @@ const zmapScan = {
         await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
     },
     recordResult: async (stage, taskId, results) => {
-        sdao.push('zmapResults', { _id: taskId }, { results: { $each: results } })
+      for (var result of results){
+        await sdao.insert(taskId+'--zr', result)
+      }
     },
 }
 module.exports = {

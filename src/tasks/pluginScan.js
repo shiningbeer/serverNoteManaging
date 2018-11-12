@@ -41,13 +41,27 @@ const pluginScan = {
 
             }
             var rest = await sdao.insert('task', newTaskToAdd)
+            let newResut = {
+                _id: rest.insertedId,
+                port: plugin.port,
+                results: [],
+                complete: false,
+                startAt: null,
+                completeAt: null,
+                plugin: plugin.name,
+                taskName: realTaskName
+            }
+            await sdao.insert('pluginResults', newResut)
 
             //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   
             logger.info('[creating progress table]:[Task %s][%s]', realTaskName, type)
             let allIpRange = []
             for (var target of targetList) {
-                let iprange = await sdao.findone('zmapResults', { _id: target._id })
-                allIpRange.push(...iprange.results)
+                let iprange = await sdao.find(target._id + '--zr', {})
+                for (var r of iprange) {
+                    allIpRange.push(r.ip)
+                }
+                
             }
             //将所有目标创建为进度表，以该任务id来标识
             for (var ipr of allIpRange) {
@@ -74,10 +88,11 @@ const pluginScan = {
         //确定结果已经完全取回时，直接标注即可
         logger.info('[result complete]:[Task%s]', taskName)
         await sdao.update('task', { _id: taskId }, { resultCollected: true })
+        await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
     },
     recordResult: async (stage, taskId, results) => {
         for (var result of results) {
-            await sdao.insert(taskId + '--result', result)
+            await sdao.insert(taskId + '--pr', result)
         }
     },
 }
