@@ -24,7 +24,7 @@ const zmapScan = {
             ptCreated: false,
 
             targetList,
-            port,
+            port:Number(port),
             total: ipRangeCount,
             progress: 0,
             complete: false,
@@ -76,7 +76,8 @@ const zmapScan = {
         //确定结果已经完全取回时，直接标注即可
         logger.info('[result complete]:[Task%s]', taskName)
         await sdao.update('task', { _id: taskId }, { resultCollected: true })
-        await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
+      var count=await sdao.getCount(taskId+'--zr',{})
+        await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now(),lines:count })
     },
     recordResult: async (stage, taskId, results) => {
       for (var result of results){
