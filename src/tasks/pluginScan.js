@@ -14,6 +14,7 @@ const pluginScan = {
         for (var plugin of pluginList) {
             let name_without_ext = plugin.name.substring(0, plugin.name.length - 3)
             let realTaskName = name + '--' + name_without_ext
+            plugin.port=Number(plugin.port)
             let newTaskToAdd = {
                 //一般性的任务属性，和其它类型的任务一致
                 type,
@@ -88,7 +89,8 @@ const pluginScan = {
         //确定结果已经完全取回时，直接标注即可
         logger.info('[result complete]:[Task%s]', taskName)
         await sdao.update('task', { _id: taskId }, { resultCollected: true })
-        await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
+        var count=await sdao.getCount(taskId+'--pr',{})
+        await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now(),lines:count })
     },
     recordResult: async (stage, taskId, results) => {
         for (var result of results) {

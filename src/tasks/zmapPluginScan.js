@@ -14,6 +14,7 @@ const zmapPluginScan = {
     for (var plugin of pluginList) {
       let name_without_ext = plugin.name.substring(0, plugin.name.length - 3)
       let realTaskName = name + '--' + name_without_ext
+      plugin.port=Number(plugin.port)
       let newTaskToAdd = {
         //一般性的任务属性，和其它类型的任务一致
         type,
@@ -99,16 +100,20 @@ const zmapPluginScan = {
     if (stage == 'plugin') {
       logger.info('[result complete]:[Task%s][stage:%s]', taskName, stage)
       await sdao.update('task', { _id: taskId }, { resultCollected: true })
+      var count=await sdao.getCount(taskId+'--pr',{})
+      await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now(),lines:count })
+
 
     }
     //如果是zmap阶段，则需要以zmap阶段的结果作为目标，使任务继续完成plugin阶段的任务，因此需要在这里把任务改装成plugin
     else {
       //首先，标注zmap阶段完成
       logger.info('[result complete]:[Task%s][stage:%s]', taskName, stage)
-      await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now() })
-      let zmapResult = await sdao.find(taskId.toString()+'--zr')
+      var zrcount=await sdao.getCount(taskId+'--zr',{})
+      await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now() ,lines:zrcount})
+      let zmapResult = await sdao.find(taskId.toString()+'--zr',{})
       //给任务属性重新赋值，标注为plugin阶段
-      await sdao.update('task', { _id: taskId }, { ptCreated:false,toES:false,complete: false, stage: 'plugin', progress: 0, targetList: taskId, total: zmapResult.results.length })
+      await sdao.update('task', { _id: taskId }, { ptCreated:false,toES:false,complete: false, stage: 'plugin', progress: 0, targetList: taskId, total: zrcount })
       logger.info('[creating progress table]:[Task %s][stage %s]', taskName, stage)
       //以Zmap阶段的结果来重建进度表
       await sdao.dropCol('progress--' + taskId.toString())
