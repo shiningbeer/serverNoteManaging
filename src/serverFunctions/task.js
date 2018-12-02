@@ -1,4 +1,6 @@
 var { sdao } = require('../util/dao')
+const { sdao: sdao_cidr } = require('../util/dao_cidr')
+const { sdao: sdao_ipv4 } = require('../util/dao_ipv4')
 var { logger } = require('../util/mylogger')
 const { taskSelector } = require('../tasks/selector')
 var elasticsearch = require('elasticsearch');
@@ -8,7 +10,12 @@ const task = {
     var newTask = req.body.newTask
     if (newTask == null)
       return res.sendStatus(415)
-    const {type}=newTask
+    const { type } = newTask
+    if (type == 'zmapPlugin') {
+      res.json('ok')
+      return
+    }
+
     console.log(newTask)
     let taskFunc = taskSelector(type)
     newTask.user = req.tokenContainedInfo.user
@@ -25,6 +32,10 @@ const task = {
     await sdao.update('nodeTask', { taskId }, { deleted: true })
     //delete the task it self
     await sdao.delete('task', { _id: taskId })
+    await sdao_cidr.delete('taskInfo', { name: taskId.toString() })
+    await sdao_cidr.dropCol(taskId.toString())
+    await sdao_ipv4.update('taskInfo', { name: taskId.toString() })
+    await sdao_ipv4.dropCol(taskId.toString())
     res.json('ok')
   },
 
@@ -33,13 +44,10 @@ const task = {
     var { taskId, nodeList } = req.body
     if (taskId == null || nodeList == null)
       return res.sendStatus(415)
-    //add the nodes
-    for (var node of nodeList) {
-      await sdao.push('task', { _id: taskId }, { nodes: node })
-    }
-    await sdao.update('zmapResults', { _id: taskId }, { startAt: Date.now() })
     //update the task
-    await sdao.update('task', { _id: taskId }, { started: true, paused: false  ,startAt: Date.now() })
+    await sdao.update('task', { _id: taskId }, { started: true, paused: false, startAt: Date.now() })
+    await sdao_cidr.update('taskInfo', { name: taskId.toString() }, { pause: false })
+    await sdao_ipv4.update('taskInfo', { name: taskId.toString() }, { pause: false })
     res.json('ok')
   },
   pause: async (req, res) => {
@@ -47,24 +55,24 @@ const task = {
     if (taskId == null)
       return res.sendStatus(415)
 
-    //set the related sub tasks which are not completed as paused
-    await sdao.update('nodeTask', { taskId, complete: false }, { paused: true, needToSync: true, goWrong: false })
     //set the task itself as paused
     await sdao.update('task', { _id: taskId }, { paused: true })
+    await sdao_cidr.update('taskInfo', { name: taskId.toString() }, { pause: true })
+    await sdao_ipv4.update('taskInfo', { name: taskId.toString() }, { pause: true })
     res.json('ok')
   },
   resume: async (req, res) => {
     var { taskId } = req.body
     if (taskId == null)
       return res.sendStatus(415)
-    //set the related sub tasks which are not completed as not paused
-    await sdao.update('nodeTask', { taskId, complete: false }, { paused: false, needToSync: true })
     //set the task itself as not paused
     await sdao.update('task', { _id: taskId }, { paused: false })
+    await sdao_cidr.update('taskInfo', { name: taskId.toString() }, { pause: false })
+    await sdao_ipv4.update('taskInfo', { name: taskId.toString() }, { pause: false })
     res.json('ok')
   },
   get: async (req, res) => {
-    var {condition} = req.body
+    var { condition } = req.body
     if (condition == null)
       return res.sendStatus(415)
     let result = await sdao.findsort('task', condition, { createdAt: -1 })

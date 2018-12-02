@@ -8,6 +8,8 @@ const { node } = require('./serverFunctions/node')
 const { target } = require('./serverFunctions/target')
 const { plugin } = require('./serverFunctions/plugin')
 const { adao } = require('./util/dao')
+const { sdao: sdao_cidr } = require('./util/dao_cidr')
+const { sdao: sdao_ipv4 } = require('./util/dao_ipv4')
 
 var { logger } = require('./util/mylogger')
 
@@ -74,6 +76,8 @@ var server = app.listen(1978, function () {
   adao.connect("mongodb://localhost:27017", 'cent', (err) => {
     err ? logger.info('db connection fail!') : logger.info('server starts!')
   })
+  await sdao_cidr.connect("mongodb://localhost:27017", 'cidrTask')
+  await sdao_ipv4.connect("mongodb://localhost:27017", 'ipv4Task')
 
 
 })

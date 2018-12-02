@@ -1,4 +1,5 @@
 var { sdao } = require('../util/dao')
+const { sdao: sdao_cidr } = require('../util/dao_cidr')
 var { logger } = require('../util/mylogger')
 
 const zmapScan = {
@@ -24,7 +25,7 @@ const zmapScan = {
             ptCreated: false,
 
             targetList,
-            port:Number(port),
+            port: Number(port),
             total: ipRangeCount,
             progress: 0,
             complete: false,
@@ -33,16 +34,16 @@ const zmapScan = {
 
         }
         var rest = await sdao.insert('task', newTaskToAdd)
-        let newResut = {
-            _id: rest.insertedId,
-            port: newTaskToAdd.port,
+        let new_cidr_task = {
+            name: rest.insertedId.toString(),
+            allSent: false,
+            port: Number(port),
             complete: false,
-            startAt: null,
-            completeAt: null,
-            taskName: realTaskName
-        }
-        await sdao.insert('zmapResults', newResut)
+            pause: true,
+            count: ipRangeCount,
+            progress: 0
 
+        }
         //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   
         logger.info('[creating progress table]:[Task %s][%s]', name, type)
         let allIpRange = []
@@ -52,11 +53,12 @@ const zmapScan = {
         }
         //将所有目标创建为进度表，以该任务id来标识
         for (var ipr of allIpRange) {
-            var ipR = { ipr, complete: false, node: null }
-            await sdao.insert('progress--' + rest.insertedId.toString(), ipR)
+            var ipR = { ip: ipr, port: Number(port) }
+            await sdao_cidr.insert(rest.insertedId.toString(), ipR)
         }
         await sdao.update('task', { _id: rest.insertedId }, { ptCreated: true })
         logger.info('[progress table created]:[Task %s][%s]', name, type)
+        await sdao_cidr.insert('taskInfo', new_cidr_task)
     },
 
 
@@ -76,13 +78,13 @@ const zmapScan = {
         //确定结果已经完全取回时，直接标注即可
         logger.info('[result complete]:[Task%s]', taskName)
         await sdao.update('task', { _id: taskId }, { resultCollected: true })
-      var count=await sdao.getCount(taskId+'--zr',{})
-        await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now(),lines:count })
+        var count = await sdao.getCount(taskId + '--zr', {})
+        await sdao.update('zmapResults', { _id: taskId }, { complete: true, completeAt: Date.now(), lines: count })
     },
     recordResult: async (stage, taskId, results) => {
-      for (var result of results){
-        await sdao.insert(taskId+'--zr', result)
-      }
+        for (var result of results) {
+            await sdao.insert(taskId + '--zr', result)
+        }
     },
 }
 module.exports = {

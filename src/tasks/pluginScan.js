@@ -1,6 +1,7 @@
 
 var { sdao } = require('../util/dao')
 var { logger } = require('../util/mylogger')
+const { sdao: sdao_ipv4 } = require('../util/dao_ipv4')
 
 const pluginScan = {
     add: async (newTask) => {
@@ -14,7 +15,7 @@ const pluginScan = {
         for (var plugin of pluginList) {
             let name_without_ext = plugin.name.substring(0, plugin.name.length - 3)
             let realTaskName = name + '--' + name_without_ext
-            plugin.port=Number(plugin.port)
+            plugin.port = Number(plugin.port)
             let newTaskToAdd = {
                 //一般性的任务属性，和其它类型的任务一致
                 type,
@@ -42,18 +43,17 @@ const pluginScan = {
 
             }
             var rest = await sdao.insert('task', newTaskToAdd)
-            let newResut = {
-                _id: rest.insertedId,
+            let new_task_ipv4 = {
+                name: rest.insertedId.toString(),
                 port: plugin.port,
-                results: [],
                 complete: false,
-                startAt: null,
-                completeAt: null,
+                pause: true,
+                allSent: false,
+                count: ipRangeCount,
                 plugin: plugin.name,
-                taskName: realTaskName
+                error: false,
+                progress: 0,
             }
-            await sdao.insert('pluginResults', newResut)
-
             //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   
             logger.info('[creating progress table]:[Task %s][%s]', realTaskName, type)
             let allIpRange = []
@@ -62,15 +62,16 @@ const pluginScan = {
                 for (var r of iprange) {
                     allIpRange.push(r.ip)
                 }
-                
+
             }
             //将所有目标创建为进度表，以该任务id来标识
             for (var ipr of allIpRange) {
-                var ipR = { ipr, complete: false, node: null }
-                await sdao.insert('progress--' + rest.insertedId.toString(), ipR)
+                var ipR = { ip: ipr, port: plugin.port, plugin: plugin.name }
+                await sdao_ipv4.insert(rest.insertedId.toString(), ipR)
             }
             await sdao.update('task', { _id: rest.insertedId }, { ptCreated: true })
             logger.info('[progress table created]:[Task %s][%s]', realTaskName, type)
+            await sdao_ipv4.insert("taskInfo", new_task_ipv4)
         }
     },
     addSpecialFieldWhenDispatchNodeTask: (task, nodetask) => {
@@ -89,8 +90,8 @@ const pluginScan = {
         //确定结果已经完全取回时，直接标注即可
         logger.info('[result complete]:[Task%s]', taskName)
         await sdao.update('task', { _id: taskId }, { resultCollected: true })
-        var count=await sdao.getCount(taskId+'--pr',{})
-        await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now(),lines:count })
+        var count = await sdao.getCount(taskId + '--pr', {})
+        await sdao.update('pluginResults', { _id: taskId }, { complete: true, completeAt: Date.now(), lines: count })
     },
     recordResult: async (stage, taskId, results) => {
         for (var result of results) {
