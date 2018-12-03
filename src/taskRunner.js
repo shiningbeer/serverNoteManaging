@@ -19,16 +19,16 @@ adao.connect("mongodb://localhost:27017", 'cent', async (err) => {
     await sdao_cidr.connect("mongodb://localhost:27017", 'cidrTask')
     await sdao_ipv4.connect("mongodb://localhost:27017", 'ipv4Task')
     setInterval(async () => {
-        var tasks_cidr = await sdao_cidr.find('taskInfo', {})
+        var tasks_cidr = await sdao_cidr.find('taskInfo', {createdby:'webpage'})
         for (var task of tasks_cidr) {
             var { progress, name } = task
-            sdao.update('task', { _id: name }, { progress })
+            await sdao.update('task', { _id: name }, { progress })
 
         }
-        var tasks_ipv4 = await sdao_ipv4.find('taskInfo', {})
+        var tasks_ipv4 = await sdao_ipv4.find('taskInfo', {'createdby':'webpage'})
         for (var task of tasks_ipv4) {
             var { progress, name } = task
-            sdao.update('task', { _id: name }, { progress })
+            await sdao.update('task', { _id: name }, { progress })
 
         }
     }, 1000)

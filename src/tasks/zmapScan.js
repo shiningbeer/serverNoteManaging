@@ -41,7 +41,8 @@ const zmapScan = {
             complete: false,
             pause: true,
             count: ipRangeCount,
-            progress: 0
+            progress: 0,
+            createdby:'webpage'
 
         }
         //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   

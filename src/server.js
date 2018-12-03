@@ -70,7 +70,7 @@ app.post('/plugin/get', plugin.get)
 
 
 //start server at localhost on the designated port
-var server = app.listen(1978, function () {
+var server = app.listen(1978, async function () {
   // var host = server.address().address
   // var port = server.address().port
   adao.connect("mongodb://localhost:27017", 'cent', (err) => {

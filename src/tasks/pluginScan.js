@@ -50,23 +50,21 @@ const pluginScan = {
                 pause: true,
                 allSent: false,
                 count: ipRangeCount,
-                plugin: plugin.name,
+                plugin: plugin.name.substring(0,plugin.name.length-3),
                 error: false,
                 progress: 0,
+                createdby:'webpage'
             }
             //插入任务的同时，为该任务建立进度表，进度表由该任务的所有目标合成   
-            logger.info('[creating progress table]:[Task %s][%s]', realTaskName, type)
+            logger.info('[creating progress table]:[Task %s][%s]', name, type)
             let allIpRange = []
             for (var target of targetList) {
-                let iprange = await sdao.find(target._id + '--zr', {})
-                for (var r of iprange) {
-                    allIpRange.push(r.ip)
-                }
-
+                let iprange = await sdao.findone('target', { _id: target._id })
+                allIpRange.push(...iprange.ipRange)
             }
             //将所有目标创建为进度表，以该任务id来标识
             for (var ipr of allIpRange) {
-                var ipR = { ip: ipr, port: plugin.port, plugin: plugin.name }
+                var ipR = { ip: ipr, port: plugin.port, plugin: plugin.name.substring(0,plugin.name.length-3)}
                 await sdao_ipv4.insert(rest.insertedId.toString(), ipR)
             }
             await sdao.update('task', { _id: rest.insertedId }, { ptCreated: true })

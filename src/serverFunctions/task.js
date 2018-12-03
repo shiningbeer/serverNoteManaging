@@ -34,7 +34,7 @@ const task = {
     await sdao.delete('task', { _id: taskId })
     await sdao_cidr.delete('taskInfo', { name: taskId.toString() })
     await sdao_cidr.dropCol(taskId.toString())
-    await sdao_ipv4.update('taskInfo', { name: taskId.toString() })
+    await sdao_ipv4.delete('taskInfo', { name: taskId.toString() })
     await sdao_ipv4.dropCol(taskId.toString())
     res.json('ok')
   },
