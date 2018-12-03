@@ -4,7 +4,7 @@ headers = {
     'upgrade-insecure-requests': "1",
     'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.63 Safari/537.36',
 }
-def scan(target):
+def scan(target,port=80):
     try:
         url = 'http://' + target
         url2='http://' + target+"/VxWorks/FirmInfo"
