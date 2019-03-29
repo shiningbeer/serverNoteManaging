@@ -20,13 +20,16 @@ app.use(bodypaser.urlencoded({
 }))
 app.use(bodypaser.json({ limit: '50mb' }));
 app.use(bodypaser.urlencoded({ limit: '50mb', extended: true }));
-app.use(myMiddleWare.verifyToken)
 app.all('*', myMiddleWare.header);
+app.use(myMiddleWare.verifyToken)
 
 var upload = multer({
   dest: plugin.uploadDir
 })
 
+var upload2 = multer({
+  dest: target.uploadDir
+})
 
 
 
@@ -55,7 +58,7 @@ app.post('/node/update', node.update)
 app.post('/node/get', node.get)
 
 //target
-app.post('/target/add', target.add)
+app.post('/target/add', upload2.single('file'),target.add)
 app.post('/target/delete', target.delete)
 app.post('/target/update', target.update)
 app.post('/target/get', target.get)

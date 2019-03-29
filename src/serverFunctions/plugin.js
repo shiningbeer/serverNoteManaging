@@ -14,7 +14,7 @@ const plugin = {
     }
     var newplugin = {
       name: file.originalname,
-      user: req.tokenContainedInfo.user,
+      user: 'lele',
       description: '',
       protocal: '',
       usedCount: 0,

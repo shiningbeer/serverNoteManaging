@@ -32,22 +32,25 @@ const user = {
     res.json('ok')
   },
   getToken: async (req, res) => {
+    console.log(req.body)
     var user = req.body.userName
     var pw = req.body.password
+    var type=req.body.type
     if (user == null || pw == null)
       return res.sendStatus(415)
     let result = await sdao.find('user', { name: user, password: pw })
+    console.log(result)
     if (result.length < 1)
-      res.sendStatus(401)
+      res.json({status:'no'})
     else {
       let userInfo = result[0]
       let token = jwt.encode({ user: userInfo.name, type: userInfo.authority }, 'secrettt')
-      res.send({
+      res.json({
         status: 'ok',
-        type: 'account',
+        type,
         currentAuthority: userInfo.authority,
-        currentUser: userInfo.name,
-        token: token
+        currentUser:userInfo.name,
+          token,
       })
     }
   },
