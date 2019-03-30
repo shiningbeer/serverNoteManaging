@@ -11,15 +11,39 @@ const task = {
     if (newTask == null)
       return res.sendStatus(415)
     const { type } = newTask
-    if (type == 'zmapPlugin') {
-      res.json('ok')
-      return
+    // if (type == 'zmapPlugin') {
+    //   res.json('ok')
+    //   return
+    // }
+
+    // console.log(newTask)
+    
+    // let taskFunc = taskSelector(type)
+    // newTask.user = req.tokenContainedInfo.user
+    // await taskFunc.add(newTask)
+    newTask.user=req.tokenContainedInfo.user
+    if(type=='port'){
+      let ports=newTask.port.split(';')
+      for(var port of ports){
+        let atask={
+          ...newTask,
+            started: false,
+            createdAt: Date.now(),
+            startAt: null,
+            completedAt: null,
+            goWrong: false,
+            paused: true,
+            progress: 0,
+            complete: false,
+            stage: '端口扫描',
+        }
+        atask.name=atask.name+'-'+port
+        atask.port=port
+        await sdao.insert('task',atask)
+      }
     }
 
-    console.log(newTask)
-    let taskFunc = taskSelector(type)
-    newTask.user = req.tokenContainedInfo.user
-    await taskFunc.add(newTask)
+
     res.json('ok')
   },
   delete: async (req, res) => {
@@ -76,6 +100,7 @@ const task = {
     if (condition == null)
       return res.sendStatus(415)
     let result = await sdao.findsort('task', condition, { createdAt: -1 })
+    console.log(result)
     res.json(result)
   },
   getDetail: async (req, res) => {
