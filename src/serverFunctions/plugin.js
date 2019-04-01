@@ -62,6 +62,7 @@ const plugin = {
       if (oneplugin != null)
         result.push(oneplugin)
     }
+    // console.log(result)
     res.json(result)
   },
 }
