@@ -3,23 +3,9 @@ var { logger } = require('../util/mylogger')
 var fs = require('fs')
 const uploadDir = './uploadTargets/'
 const target = {
-  adddd: async (req, res) => {
-    var newTarget = req.body.newTarget
-    if (newTarget == null)
-      return res.sendStatus(415)
-    //todo: verify validity of newTarget
-    let newTargetToAdd = {
-      ...newTarget,
-      usedCount: 8,
-      ipTotal: 6555,
-      lines: newTarget.ipRange.length,
-      createdby: req.tokenContainedInfo.user
-    }
-    await sdao.insert('target', newTargetToAdd)
-    res.json('ok')
-  },
+
   uploadDir,
-  add: async (req, res) => {
+add: async (req, res) => {
     var file = req.file
     try {
       fs.renameSync(uploadDir + file.filename, uploadDir + file.originalname)
@@ -28,13 +14,30 @@ const target = {
       console.log(e)
       return res.sendStatus(501)
     }
+    var lines = []
+    try {
+      var read = fs.readFileSync(uploadDir + file.originalname, 'utf-8')
+
+
+    }
+    catch (e) {
+      console.log(e)
+      return res.sendStatus(501)
+    }
+    lines = read.split('\n')
+    var ipRange=[]
+    for (var line of lines) {
+      if (line == '') continue
+      ipRange.push(line)
+
+    }
     var newTarget = {
       name: file.originalname,
-      createdby: 'lele',
+      createdby: req.tokenContainedInfo.user,
       description: '',
-      lines:455,
-      ipRange:[],
-      
+      lines: ipRange.length,
+      ipRange,
+
       uploadAt: Date.now(),
     }
     await sdao.insert('target', newTarget)

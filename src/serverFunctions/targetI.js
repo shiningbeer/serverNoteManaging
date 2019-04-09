@@ -13,12 +13,29 @@ const targetI = {
       console.log(e)
       return res.sendStatus(501)
     }
+    var lines = []
+    try {
+      var read = fs.readFileSync(uploadDir + file.originalname, 'utf-8')
+
+
+    }
+    catch (e) {
+      console.log(e)
+      return res.sendStatus(501)
+    }
+    lines = read.split('\n')
+    var ipRange=[]
+    for (var line of lines) {
+      if (line == '') continue
+      ipRange.push(line)
+
+    }
     var newTarget = {
       name: file.originalname,
-      createdby: 'lele',
+      createdby: req.tokenContainedInfo.user,
       description: '',
-      lines: 455,
-      ipRange: [],
+      lines: ipRange.length,
+      ipRange,
 
       uploadAt: Date.now(),
     }
